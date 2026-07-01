@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/services.dart';
 
 class ReadabilityInjector {
@@ -10,11 +11,16 @@ class ReadabilityInjector {
 
   Future<String> getInjectScript() async {
     final code = await js;
+    // Escape the JS code for embedding in a string literal
+    final escaped = code
+        .replaceAll('\\', '\\\\')
+        .replaceAll('`', '\\`')
+        .replaceAll('\$', '\\\$');
     return '''
 (function() {
   if (typeof Readability !== 'undefined') return;
   var script = document.createElement('script');
-  script.textContent = ${_escapeJs(code)};
+  script.textContent = `$escaped`;
   document.head.appendChild(script);
 })();
 ''';
@@ -24,22 +30,20 @@ class ReadabilityInjector {
     return '''
 (function() {
   try {
+    if (typeof Readability === 'undefined') {
+      return JSON.stringify({error: 'Readability not loaded'});
+    }
     var documentClone = document.cloneNode(true);
     var article = new Readability(documentClone).parse();
     if (article) {
-      window.flutter_inappwebview.callHandler('onArticleExtracted', JSON.stringify(article));
+      return JSON.stringify(article);
     } else {
-      window.flutter_inappwebview.callHandler('onArticleExtracted', JSON.stringify({error: 'Could not parse article'}));
+      return JSON.stringify({error: 'Could not parse article'});
     }
   } catch(e) {
-    window.flutter_inappwebview.callHandler('onArticleExtracted', JSON.stringify({error: e.message}));
+    return JSON.stringify({error: e.message});
   }
 })();
 ''';
-  }
-
-  String _escapeJs(String js) {
-    // Use jsonEncode to properly escape the JS string
-    return "'${js.replaceAll("\\", "\\\\").replaceAll("'", "\\'").replaceAll("\n", "\\n").replaceAll("\r", "")}'";
   }
 }

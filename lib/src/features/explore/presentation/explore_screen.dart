@@ -48,7 +48,6 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   void _initWebView() {
     _webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setUserAgent('Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36')
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (url) {
@@ -261,28 +260,18 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     setState(() => _isExtracting = true);
 
     try {
-      // Use runJavaScriptReturningResult to get the output directly
-      final result = await _webViewController.runJavaScriptReturningResult('''
-(function() {
-  try {
-    // Check if Readability is available
-    if (typeof Readability === 'undefined') {
-      return JSON.stringify({error: 'Readability not loaded yet. Please wait and try again.'});
-    }
-    var documentClone = document.cloneNode(true);
-    var article = new Readability(documentClone).parse();
-    if (article) {
-      return JSON.stringify(article);
-    } else {
-      return JSON.stringify({error: 'Could not parse this page as an article.'});
-    }
-  } catch(e) {
-    return JSON.stringify({error: e.message});
-  }
-})();
-''');
+      // First ensure Readability is injected
+      if (_injectScript != null) {
+        await _webViewController.runJavaScript(_injectScript!);
+        await Future.delayed(const Duration(milliseconds: 800));
+      }
 
-      // Extract the JSON string from the result
+      // Run extraction
+      final result = await _webViewController.runJavaScriptReturningResult(
+        _injector.getExtractScript(),
+      );
+
+      // Parse result
       String jsonStr;
       if (result is String) {
         jsonStr = result;
@@ -290,7 +279,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
         jsonStr = result.toString();
       }
 
-      // Remove surrounding quotes if present (JS returns quoted string)
+      // Remove surrounding quotes if present
       if (jsonStr.startsWith('"') && jsonStr.endsWith('"')) {
         jsonStr = jsonDecode(jsonStr) as String;
       }
