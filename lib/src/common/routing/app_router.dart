@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../theme/colors.dart';
 import '../../features/library/presentation/library_screen.dart';
 import '../../features/reader/presentation/reader_screen.dart';
 import '../../features/dictionary/presentation/vocabulary_list_screen.dart';
@@ -9,12 +10,19 @@ import '../../features/active_recall/presentation/recall_screen.dart';
 import '../../features/active_recall/presentation/review_result_screen.dart';
 import '../../features/reading_mastery/presentation/mastery_detail_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
+import '../../features/explore/presentation/explore_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/',
     routes: [
-      GoRoute(path: '/', name: 'library', builder: (_, __) => const LibraryScreen()),
+      ShellRoute(
+        builder: (context, state, child) => _MainShell(child: child),
+        routes: [
+          GoRoute(path: '/', name: 'library', builder: (_, __) => const LibraryScreen()),
+          GoRoute(path: '/explore', name: 'explore', builder: (_, __) => const ExploreScreen()),
+        ],
+      ),
       GoRoute(
         path: '/reader/:documentId', name: 'reader',
         builder: (_, state) => ReaderScreen(documentId: int.parse(state.pathParameters['documentId']!)),
@@ -36,3 +44,105 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+class _MainShell extends StatelessWidget {
+  final Widget child;
+  const _MainShell({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final location = GoRouterState.of(context).matchedLocation;
+
+    return Scaffold(
+      body: child,
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1C1C1E).withOpacity(0.95) : const Color(0xFFFFFFFF).withOpacity(0.95),
+          border: Border(
+            top: BorderSide(
+              color: isDark ? const Color(0xFF38383A) : const Color(0xFFECECEC),
+              width: 0.5,
+            ),
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _NavItem(
+                  icon: Icons.menu_book_outlined,
+                  activeIcon: Icons.menu_book,
+                  label: 'Library',
+                  isActive: location == '/',
+                  isDark: isDark,
+                  onTap: () => context.go('/'),
+                ),
+                _NavItem(
+                  icon: Icons.explore_outlined,
+                  activeIcon: Icons.explore,
+                  label: 'Explore',
+                  isActive: location == '/explore',
+                  isDark: isDark,
+                  onTap: () => context.go('/explore'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final bool isActive;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _NavItem({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+    required this.isActive,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isActive ? activeIcon : icon,
+            size: 24,
+            color: isActive
+                ? AppColors.accent
+                : (isDark ? AppColors.darkTextTertiary : AppColors.textTertiary),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 10,
+              fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+              color: isActive
+                  ? AppColors.accent
+                  : (isDark ? AppColors.darkTextTertiary : AppColors.textTertiary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

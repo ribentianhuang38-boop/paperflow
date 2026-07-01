@@ -219,6 +219,7 @@ class LibraryScreen extends ConsumerWidget {
       }
 
       int importedCount = 0;
+      String? lastError;
       for (final file in files) {
         final name = file.name;
         final ext = p.extension(name).toLowerCase();
@@ -228,24 +229,42 @@ class LibraryScreen extends ConsumerWidget {
             : (ext == '.html' || ext == '.htm') ? 'html'
             : ext == '.txt' ? 'txt' : 'unknown';
 
-        if (fileType == 'unknown') continue;
+        if (fileType == 'unknown') {
+          lastError = 'Unsupported file type: $name';
+          continue;
+        }
 
         try {
           final bytes = await file.readAsBytes();
-          if (bytes.isEmpty) continue;
+          if (bytes.isEmpty) {
+            lastError = 'File is empty: $name';
+            continue;
+          }
+
           final uniqueName = '${const Uuid().v4()}_$name';
           final destPath = p.join(papersDir.path, uniqueName);
-          await File(destPath).writeAsBytes(bytes);
+          final destFile = await File(destPath).writeAsBytes(bytes);
 
-          await repo.insertDocument({
+          if (!await destFile.exists() || await destFile.length() == 0) {
+            lastError = 'Failed to write file: $name';
+            continue;
+          }
+
+          final id = await repo.insertDocument({
             'title': p.basenameWithoutExtension(name),
             'filePath': destPath,
             'fileType': fileType,
             'importDate': DateTime.now().millisecondsSinceEpoch,
           });
-          importedCount++;
+
+          if (id > 0) {
+            importedCount++;
+          } else {
+            lastError = 'Database insert failed: $name';
+          }
         } catch (e) {
-          debugPrint('Failed to import $name: $e');
+          lastError = 'Error importing $name: $e';
+          debugPrint(lastError);
         }
       }
 
@@ -253,15 +272,21 @@ class LibraryScreen extends ConsumerWidget {
       ref.invalidate(filteredDocumentsProvider);
       ref.invalidate(continueReadingProvider);
 
-      if (context.mounted && importedCount > 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Imported $importedCount document(s)')),
-        );
+      if (context.mounted) {
+        if (importedCount > 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Imported $importedCount document(s)')),
+          );
+        } else if (lastError != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(lastError), backgroundColor: AppColors.error),
+          );
+        }
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Import failed: $e')),
+          SnackBar(content: Text('Import failed: $e'), backgroundColor: AppColors.error),
         );
       }
     }

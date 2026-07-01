@@ -29,6 +29,9 @@ dependencies:
   # EPUB
   epubx: ^4.0.0
 
+  # WebView
+  flutter_inappwebview: ^6.1.5
+
   # Network
   dio: ^5.7.0
 
@@ -58,3 +61,4 @@ flutter:
 
   assets:
     - assets/
+    - assets/readability.js
