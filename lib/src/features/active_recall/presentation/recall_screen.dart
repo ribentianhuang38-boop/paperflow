@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:speech_to_text/speech_to_text.dart';
+import 'package:epubx/epubx.dart';
 
 import 'package:paperflow/src/common/providers.dart';
 import '../../../common/theme/colors.dart';
@@ -44,14 +46,81 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
   Future<void> _loadDocument() async {
     final repo = await ref.read(documentRepositoryProvider.future);
     final doc = await repo.getDocumentById(widget.documentId);
-    if (doc != null && mounted) {
+    if (doc == null || !mounted) return;
+
+    List<String> paragraphs = [];
+    try {
+      final file = File(doc.filePath);
+      if (!await file.exists()) return;
+
+      String content = '';
+      switch (doc.fileType) {
+        case 'pdf':
+          // For PDFs, we can't easily extract text in pure Dart
+          // Show a message that PDF recall needs text extraction
+          content = await file.readAsString().catchError((_) => '');
+          break;
+        case 'epub':
+          try {
+            final bytes = await file.readAsBytes();
+            final book = await EpubReader.readBook(bytes);
+            final buf = StringBuffer();
+            for (final ch in book.Chapters ?? []) {
+              if (ch.HtmlContent != null) {
+                buf.writeln(ch.HtmlContent!
+                    .replaceAll(RegExp(r'<[^>]*>'), ' ')
+                    .replaceAll(RegExp(r'\s+'), ' ')
+                    .trim());
+                buf.writeln('\n');
+              }
+            }
+            content = buf.toString();
+          } catch (_) {}
+          break;
+        case 'md':
+        case 'html':
+        case 'txt':
+          content = await file.readAsString();
+          break;
+      }
+
+      if (content.isNotEmpty) {
+        // Split into meaningful paragraphs (at least 50 chars each)
+        final rawParagraphs = content.split(RegExp(r'\n{2,}'))
+            .map((p) => p.trim())
+            .where((p) => p.length > 50)
+            .toList();
+
+        // If no double-newline paragraphs, split by single newlines
+        if (rawParagraphs.isEmpty) {
+          final lines = content.split('\n')
+              .map((l) => l.trim())
+              .where((l) => l.length > 50)
+              .toList();
+          rawParagraphs.addAll(lines);
+        }
+
+        // If still empty, treat the whole content as one paragraph
+        if (rawParagraphs.isEmpty && content.trim().length > 20) {
+          rawParagraphs.add(content.trim().substring(0, content.trim().length.clamp(0, 2000)));
+        }
+
+        paragraphs = rawParagraphs.take(50).toList(); // Cap at 50 paragraphs
+      }
+    } catch (e) {
+      debugPrint('Error parsing document: $e');
+    }
+
+    if (mounted && paragraphs.isNotEmpty) {
       setState(() {
-        _paragraphs = [
-          'This is a sample paragraph from the document. In a real implementation, the document would be parsed into meaningful paragraphs for recall practice.',
-          'Another paragraph that demonstrates the active recall feature. The user would read the paper, then try to recall what each paragraph was about.',
-          'A third paragraph covering the methodology section. Users should describe the approach taken by the authors.',
-        ];
-        _answers = List.filled(_paragraphs.length, '');
+        _paragraphs = paragraphs;
+        _answers = List.filled(paragraphs.length, '');
+      });
+    } else if (mounted) {
+      // Fallback: show a message
+      setState(() {
+        _paragraphs = ['Could not extract text from this document. Try with a text-based document (EPUB, HTML, TXT, MD).'];
+        _answers = [''];
       });
     }
   }
@@ -257,6 +326,32 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
 
   Future<void> _submitAll() async {
     setState(() => _isSubmitting = true);
+
+    // Show loading dialog
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => const Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Analyzing with AI...'),
+                  SizedBox(height: 8),
+                  Text('This may take a moment', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     try {
       final recallDao = await ref.read(recallSessionDaoProvider.future);
       final masteryDao = await ref.read(masteryDaoProvider.future);
@@ -274,15 +369,43 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
         final result = await aiClient.chatJson([
           {'role': 'system', 'content': _systemPrompt},
           {'role': 'user', 'content': _userPrompt},
-        ]);
+        ], maxTokens: 4096);
+
         final score = (result['overall_understanding'] as num?)?.toDouble() ?? 0.0;
         await recallDao.updateSessionScore(sessionId, score);
         await masteryDao.insertScore(widget.documentId, score);
-      } catch (e) { debugPrint('AI failed: $e'); }
 
-      if (mounted) context.push('/review/$sessionId');
+        // Update individual answers with AI feedback
+        final misunderstood = result['misunderstood_paragraphs'] as List<dynamic>? ?? [];
+        for (final item in misunderstood) {
+          final idx = item['index'] as int? ?? -1;
+          if (idx >= 0 && idx < _paragraphs.length) {
+            final answers = await recallDao.getAnswersBySession(sessionId);
+            final answer = answers.firstWhere((a) => a['paragraphIdx'] == idx, orElse: () => {});
+            if (answer.isNotEmpty) {
+              await recallDao.updateAnswer(
+                answer['id'] as int,
+                (item['score'] as num?)?.toDouble() ?? 0.0,
+                item['judgment'] as String? ?? 'partial',
+                item['reason'] as String? ?? '',
+              );
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('AI analysis failed: $e');
+        // Continue even if AI fails - user can still see their answers
+      }
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        context.push('/review/$sessionId');
+      }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -298,7 +421,9 @@ Scoring (0-100):
 - 0-29: Basically no understanding
 
 Rules: Quote user's words, compare with original, give correct/partial/wrong. Only deduct for incorrect statements.
-Output: Strict JSON {"overall_understanding":82,"misunderstood_paragraphs":[{"index":0,"score":60,"judgment":"partial","reason":"..."}],"suggestions":["..."]}''';
+
+You MUST respond with ONLY a valid JSON object, no other text. Use this exact format:
+{"overall_understanding":82,"misunderstood_paragraphs":[{"index":0,"score":60,"judgment":"partial","reason":"..."}],"suggestions":["..."]}''';
 
   String get _userPrompt {
     final buf = StringBuffer('Evaluate recall responses:\n\n');
