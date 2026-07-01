@@ -149,7 +149,7 @@ class LibraryScreen extends ConsumerWidget {
   Future<void> _importDocument(
       BuildContext context, WidgetRef ref) async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'epub', 'md', 'markdown', 'html', 'htm', 'txt'],
         allowMultiple: true,
