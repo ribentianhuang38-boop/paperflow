@@ -161,7 +161,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
 
   Widget _buildUrlBar(bool isDark) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurface : AppColors.surface,
         border: Border(
@@ -175,42 +175,68 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
         children: [
           GestureDetector(
             onTap: () => _webViewController.goBack(),
-            child: Icon(Icons.arrow_back_ios, size: 18,
-                color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary),
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Icon(Icons.arrow_back_ios, size: 18,
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary),
+            ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           Expanded(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
               decoration: BoxDecoration(
                 color: isDark ? AppColors.darkSurfaceSecondary : AppColors.surfaceSecondary,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
-                  if (_currentUrl.isNotEmpty)
-                    Icon(Icons.lock_outline, size: 14,
-                        color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary),
-                  if (_currentUrl.isNotEmpty) const SizedBox(width: 6),
+                  Icon(Icons.lock_outline, size: 14,
+                      color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary),
+                  const SizedBox(width: 6),
                   Expanded(
-                    child: Text(
-                      _currentTitle.isNotEmpty ? _currentTitle : _currentUrl,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    child: TextField(
+                      controller: _urlController,
                       style: AppTypography.caption1.copyWith(
                         color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
                       ),
+                      decoration: InputDecoration(
+                        hintText: 'Search or enter URL',
+                        hintStyle: AppTypography.caption1.copyWith(
+                          color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+                        ),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        filled: false,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                        isDense: true,
+                      ),
+                      keyboardType: TextInputType.url,
+                      textInputAction: TextInputAction.go,
+                      onSubmitted: (value) {
+                        String url = value.trim();
+                        if (url.isEmpty) return;
+                        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                          if (url.contains('.') && !url.contains(' ')) {
+                            url = 'https://$url';
+                          } else {
+                            url = 'https://www.google.com/search?q=${Uri.encodeComponent(url)}';
+                          }
+                        }
+                        _webViewController.loadRequest(Uri.parse(url));
+                      },
                     ),
                   ),
                 ],
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           GestureDetector(
             onTap: _captureArticle,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: AppColors.accent,
                 borderRadius: BorderRadius.circular(20),
@@ -219,7 +245,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(Icons.auto_stories, size: 16, color: Colors.white),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 4),
                   Text('Read', style: AppTypography.caption1.copyWith(
                     color: Colors.white, fontWeight: FontWeight.w600,
                   )),

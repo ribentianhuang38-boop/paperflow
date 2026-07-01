@@ -57,22 +57,23 @@ class _MainShell extends StatelessWidget {
     return Scaffold(
       body: child,
       bottomNavigationBar: Container(
+        height: 82,
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1C1C1E).withOpacity(0.95) : const Color(0xFFFFFFFF).withOpacity(0.95),
+          color: isDark
+              ? const Color(0xFF1C1C1E).withOpacity(0.98)
+              : const Color(0xFFFFFFFF).withOpacity(0.98),
           border: Border(
             top: BorderSide(
-              color: isDark ? const Color(0xFF38383A) : const Color(0xFFECECEC),
+              color: isDark ? const Color(0xFF38383A) : const Color(0xFFE5E5EA),
               width: 0.5,
             ),
           ),
         ),
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _NavItem(
+          child: Row(
+            children: [
+              Expanded(
+                child: _NavItem(
                   icon: Icons.menu_book_outlined,
                   activeIcon: Icons.menu_book,
                   label: 'Library',
@@ -80,7 +81,9 @@ class _MainShell extends StatelessWidget {
                   isDark: isDark,
                   onTap: () => context.go('/'),
                 ),
-                _NavItem(
+              ),
+              Expanded(
+                child: _NavItem(
                   icon: Icons.explore_outlined,
                   activeIcon: Icons.explore,
                   label: 'Explore',
@@ -88,8 +91,8 @@ class _MainShell extends StatelessWidget {
                   isDark: isDark,
                   onTap: () => context.go('/explore'),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -120,21 +123,21 @@ class _NavItem extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
             isActive ? activeIcon : icon,
-            size: 24,
+            size: 26,
             color: isActive
                 ? AppColors.accent
                 : (isDark ? AppColors.darkTextTertiary : AppColors.textTertiary),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(
             label,
             style: TextStyle(
               fontFamily: 'Inter',
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
               color: isActive
                   ? AppColors.accent

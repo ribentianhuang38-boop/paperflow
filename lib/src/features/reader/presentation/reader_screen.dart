@@ -46,7 +46,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
               child: Padding(
                 padding: const EdgeInsets.only(right: 16),
                 child: Text(
-                  '$_currentPage / $_totalPages',
+                  '${_currentPage + 1} / $_totalPages',
                   style: AppTypography.caption1.copyWith(
                     color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
                   ),
@@ -59,7 +59,18 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         future: _loadDoc(),
         builder: (ctx, snap) {
           if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-          return _buildReader(snap.data!, isDark);
+          return Stack(
+            children: [
+              _buildReader(snap.data!, isDark),
+              // Bottom action bar
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: _buildBottomBar(context, snap.data!, isDark),
+              ),
+            ],
+          );
         },
       ),
     );
@@ -130,6 +141,82 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
               height: 1.7,
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomBar(BuildContext context, Document doc, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+      decoration: BoxDecoration(
+        color: (isDark ? AppColors.darkSurface : AppColors.surface).withOpacity(0.96),
+        border: Border(
+          top: BorderSide(
+            color: isDark ? AppColors.darkDivider : AppColors.divider,
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            // Progress indicator
+            if (doc.progress > 0) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkSurfaceSecondary : AppColors.surfaceSecondary,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${(doc.progress * 100).round()}%',
+                  style: AppTypography.caption1.copyWith(
+                    color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+            ],
+            // Start Review button
+            Expanded(
+              child: GestureDetector(
+                onTap: () => context.push('/recall/${doc.id}'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.quiz_outlined, size: 18, color: Colors.white),
+                      const SizedBox(width: 8),
+                      Text('Start Review', style: AppTypography.headline.copyWith(color: Colors.white)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Mastery button
+            GestureDetector(
+              onTap: () => context.push('/mastery/${doc.id}'),
+              child: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkSurfaceSecondary : AppColors.surfaceSecondary,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(Icons.trending_up, size: 22,
+                    color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary),
+              ),
+            ),
+          ],
         ),
       ),
     );
