@@ -20,9 +20,9 @@ class SettingsRepository {
   double get lineHeight => _prefs.getDouble(_keyLineHeight) ?? 1.6;
   String get locale => _prefs.getString(_keyLocale) ?? 'zh';
   String get backendUrl =>
-      _prefs.getString(_keyBackendUrl) ?? 'https://backend-swart-three-sgl5999uxy.vercel.app';
+      _prefs.getString(_keyBackendUrl) ?? 'https://backend-swart-three-sgl5999uxy.vercel.app/api';
   String get accessKey => _prefs.getString(_keyAccessKey) ?? 'paperflow-s3cr3t-2026';
-  String get modelName => _prefs.getString(_keyModelName) ?? 'LongCat-2.0';
+  String get modelName => _prefs.getString(_keyModelName) ?? 'mimo-v2.5';
 
   Future<void> setThemeMode(String value) =>
       _prefs.setString(_keyThemeMode, value);

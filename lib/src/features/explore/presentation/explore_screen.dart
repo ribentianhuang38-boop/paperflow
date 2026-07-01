@@ -48,6 +48,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   void _initWebView() {
     _webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setUserAgent('Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36')
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (url) {
@@ -66,19 +67,17 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
             if (title != null) {
               setState(() => _currentTitle = title);
             }
-            // Inject Readability.js
+            // Inject Readability.js on every page load
             if (_injectScript != null) {
-              await _webViewController.runJavaScript(_injectScript!);
+              try {
+                await _webViewController.runJavaScript(_injectScript!);
+              } catch (_) {}
             }
           },
           onProgress: (progress) {
             setState(() => _progress = progress / 100);
           },
         ),
-      )
-      ..addJavaScriptChannel(
-        'onArticleExtracted',
-        onMessageReceived: (message) => _onArticleExtracted(message.message),
       )
       ..loadRequest(Uri.parse('https://arxiv.org'));
   }
@@ -259,17 +258,44 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   }
 
   Future<void> _captureArticle() async {
-    if (_injectScript == null) return;
-
     setState(() => _isExtracting = true);
 
     try {
-      // Ensure Readability is injected
-      await _webViewController.runJavaScript(_injectScript!);
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Use runJavaScriptReturningResult to get the output directly
+      final result = await _webViewController.runJavaScriptReturningResult('''
+(function() {
+  try {
+    // Check if Readability is available
+    if (typeof Readability === 'undefined') {
+      return JSON.stringify({error: 'Readability not loaded yet. Please wait and try again.'});
+    }
+    var documentClone = document.cloneNode(true);
+    var article = new Readability(documentClone).parse();
+    if (article) {
+      return JSON.stringify(article);
+    } else {
+      return JSON.stringify({error: 'Could not parse this page as an article.'});
+    }
+  } catch(e) {
+    return JSON.stringify({error: e.message});
+  }
+})();
+''');
 
-      // Run extraction
-      await _webViewController.runJavaScript(_injector.getExtractScript());
+      // Extract the JSON string from the result
+      String jsonStr;
+      if (result is String) {
+        jsonStr = result;
+      } else {
+        jsonStr = result.toString();
+      }
+
+      // Remove surrounding quotes if present (JS returns quoted string)
+      if (jsonStr.startsWith('"') && jsonStr.endsWith('"')) {
+        jsonStr = jsonDecode(jsonStr) as String;
+      }
+
+      _onArticleExtracted(jsonStr);
     } catch (e) {
       setState(() => _isExtracting = false);
       if (mounted) {

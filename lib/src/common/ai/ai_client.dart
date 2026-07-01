@@ -8,9 +8,9 @@ class AiClient {
   String _model;
 
   AiClient({
-    String backendUrl = 'https://backend-swart-three-sgl5999uxy.vercel.app',
+    String backendUrl = 'https://backend-swart-three-sgl5999uxy.vercel.app/api',
     String accessKey = 'paperflow-s3cr3t-2026',
-    String model = 'LongCat-2.0',
+    String model = 'mimo-v2.5',
   })  : _backendUrl = backendUrl,
         _accessKey = accessKey,
         _model = model,
