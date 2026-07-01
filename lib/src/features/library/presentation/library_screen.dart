@@ -166,8 +166,10 @@ class LibraryScreen extends ConsumerWidget {
         await papersDir.create(recursive: true);
       }
 
+      int importedCount = 0;
       for (final file in files) {
-        final ext = p.extension(file.path).toLowerCase();
+        final name = file.name;
+        final ext = p.extension(name).toLowerCase();
         final fileType = ext == '.pdf' ? 'pdf'
             : ext == '.epub' ? 'epub'
             : (ext == '.md' || ext == '.markdown') ? 'md'
@@ -176,20 +178,32 @@ class LibraryScreen extends ConsumerWidget {
 
         if (fileType == 'unknown') continue;
 
-        final uniqueName = '${const Uuid().v4()}_${p.basename(file.path)}';
-        final destPath = p.join(papersDir.path, uniqueName);
-        await File(file.path).copy(destPath);
+        try {
+          final bytes = await file.readAsBytes();
+          final uniqueName = '${const Uuid().v4()}_$name';
+          final destPath = p.join(papersDir.path, uniqueName);
+          await File(destPath).writeAsBytes(bytes);
 
-        await repo.insertDocument({
-          'title': p.basenameWithoutExtension(file.path),
-          'filePath': destPath,
-          'fileType': fileType,
-          'importDate': DateTime.now().millisecondsSinceEpoch,
-        });
+          await repo.insertDocument({
+            'title': p.basenameWithoutExtension(name),
+            'filePath': destPath,
+            'fileType': fileType,
+            'importDate': DateTime.now().millisecondsSinceEpoch,
+          });
+          importedCount++;
+        } catch (e) {
+          debugPrint('Failed to import $name: $e');
+        }
       }
 
       ref.invalidate(documentsProvider);
       ref.invalidate(continueReadingProvider);
+
+      if (context.mounted && importedCount > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Imported $importedCount document(s)')),
+        );
+      }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
