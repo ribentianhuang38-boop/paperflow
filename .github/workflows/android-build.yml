@@ -44,9 +44,7 @@ jobs:
         continue-on-error: true
 
       - name: Build Release APK
-        run: |
-          flutter clean
-          flutter build apk --release
+        run: flutter build apk --release
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
