@@ -3,41 +3,44 @@ import 'package:dio/dio.dart';
 
 class AiClient {
   final Dio _dio;
-  String _baseUrl;
-  String _apiKey;
+  String _backendUrl;
+  String _accessKey;
   String _model;
 
   AiClient({
-    String baseUrl = 'https://api.openai.com/v1',
-    String apiKey = '',
+    String backendUrl = 'http://localhost:3000',
+    String accessKey = '',
     String model = 'longcat',
-  })  : _baseUrl = baseUrl,
-        _apiKey = apiKey,
+  })  : _backendUrl = backendUrl,
+        _accessKey = accessKey,
         _model = model,
-        _dio = Dio();
+        _dio = Dio(BaseOptions(
+          connectTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 120),
+        ));
 
-  String get baseUrl => _baseUrl;
-  String get apiKey => _apiKey;
+  String get backendUrl => _backendUrl;
+  String get accessKey => _accessKey;
   String get model => _model;
 
   void updateConfig({
-    String? baseUrl,
-    String? apiKey,
+    String? backendUrl,
+    String? accessKey,
     String? model,
   }) {
-    if (baseUrl != null) _baseUrl = baseUrl;
-    if (apiKey != null) _apiKey = apiKey;
+    if (backendUrl != null) _backendUrl = backendUrl;
+    if (accessKey != null) _accessKey = accessKey;
     if (model != null) _model = model;
   }
 
   Future<String> chat(List<Map<String, String>> messages) async {
     try {
       final response = await _dio.post(
-        '$_baseUrl/chat/completions',
+        '$_backendUrl/v1/chat/completions',
         options: Options(
           headers: {
             'Content-Type': 'application/json',
-            if (_apiKey.isNotEmpty) 'Authorization': 'Bearer $_apiKey',
+            'Authorization': 'Bearer $_accessKey',
           },
         ),
         data: {
@@ -60,6 +63,22 @@ class AiClient {
   Future<Map<String, dynamic>> chatJson(List<Map<String, String>> messages) async {
     final response = await chat(messages);
     return jsonDecode(response) as Map<String, dynamic>;
+  }
+
+  Future<bool> testConnection() async {
+    try {
+      final response = await _dio.get(
+        '$_backendUrl/health',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $_accessKey',
+          },
+        ),
+      );
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
   }
 }
 

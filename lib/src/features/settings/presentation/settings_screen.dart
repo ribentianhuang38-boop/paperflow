@@ -14,8 +14,8 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  late TextEditingController _apiUrlController;
-  late TextEditingController _apiKeyController;
+  late TextEditingController _backendUrlController;
+  late TextEditingController _accessKeyController;
   late TextEditingController _modelController;
   late TextEditingController _fontSizeController;
   late TextEditingController _readingWidthController;
@@ -25,8 +25,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void initState() {
     super.initState();
     final settings = ref.read(settingsProvider);
-    _apiUrlController = TextEditingController(text: settings.apiBaseUrl);
-    _apiKeyController = TextEditingController(text: settings.apiKey);
+    _backendUrlController = TextEditingController(text: settings.backendUrl);
+    _accessKeyController = TextEditingController(text: settings.accessKey);
     _modelController = TextEditingController(text: settings.modelName);
     _fontSizeController =
         TextEditingController(text: settings.fontSize.toString());
@@ -38,8 +38,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   void dispose() {
-    _apiUrlController.dispose();
-    _apiKeyController.dispose();
+    _backendUrlController.dispose();
+    _accessKeyController.dispose();
     _modelController.dispose();
     _fontSizeController.dispose();
     _readingWidthController.dispose();
@@ -284,14 +284,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       BuildContext context, SettingsRepository settings) {
     return ListTile(
       leading: const Icon(Icons.link),
-      title: const Text('API Base URL'),
-      subtitle: Text(settings.apiBaseUrl),
+      title: const Text('Backend URL'),
+      subtitle: Text(settings.backendUrl),
       onTap: () => _showTextDialog(
         context,
-        'API Base URL',
-        _apiUrlController,
+        'Backend URL',
+        _backendUrlController,
         (value) {
-          settings.setApiBaseUrl(value);
+          settings.setBackendUrl(value);
           ref.invalidate(settingsProvider);
         },
       ),
@@ -302,18 +302,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       BuildContext context, SettingsRepository settings) {
     return ListTile(
       leading: const Icon(Icons.key),
-      title: const Text('API Key'),
+      title: const Text('Access Key'),
       subtitle: Text(
-        settings.apiKey.isEmpty
+        settings.accessKey.isEmpty
             ? 'Not set'
-            : '${settings.apiKey.substring(0, 8)}...',
+            : '${settings.accessKey.substring(0, 8)}...',
       ),
       onTap: () => _showTextDialog(
         context,
-        'API Key',
-        _apiKeyController,
+        'Access Key',
+        _accessKeyController,
         (value) {
-          settings.setApiKey(value);
+          settings.setAccessKey(value);
           ref.invalidate(settingsProvider);
         },
         obscure: true,

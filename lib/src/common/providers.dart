@@ -47,8 +47,8 @@ final readingPositionDaoProvider = FutureProvider<ReadingPositionDao>((ref) asyn
 final aiClientProvider = Provider<AiClient>((ref) {
   final settings = ref.watch(settingsProvider);
   return AiClient(
-    baseUrl: settings.apiBaseUrl,
-    apiKey: settings.apiKey,
+    backendUrl: settings.backendUrl,
+    accessKey: settings.accessKey,
     model: settings.modelName,
   );
 });
