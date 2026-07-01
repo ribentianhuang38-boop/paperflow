@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:paperflow/src/features/library/domain/document.dart';
 import 'package:go_router/go_router.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
@@ -149,12 +149,15 @@ class LibraryScreen extends ConsumerWidget {
   Future<void> _importDocument(
       BuildContext context, WidgetRef ref) async {
     try {
-      final result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'epub', 'md', 'markdown', 'html', 'htm', 'txt'],
-        allowMultiple: true,
+      final files = await openFiles(
+        acceptedTypeGroups: [
+          XTypeGroup(
+            label: 'Documents',
+            extensions: ['pdf', 'epub', 'md', 'markdown', 'html', 'htm', 'txt'],
+          ),
+        ],
       );
-      if (result == null || result.files.isEmpty) return;
+      if (files.isEmpty) return;
 
       final repo = await ref.read(documentRepositoryProvider.future);
       final appDir = await getApplicationDocumentsDirectory();
@@ -163,9 +166,8 @@ class LibraryScreen extends ConsumerWidget {
         await papersDir.create(recursive: true);
       }
 
-      for (final file in result.files) {
-        if (file.path == null) continue;
-        final ext = p.extension(file.path!).toLowerCase();
+      for (final file in files) {
+        final ext = p.extension(file.path).toLowerCase();
         final fileType = ext == '.pdf' ? 'pdf'
             : ext == '.epub' ? 'epub'
             : (ext == '.md' || ext == '.markdown') ? 'md'
@@ -174,12 +176,12 @@ class LibraryScreen extends ConsumerWidget {
 
         if (fileType == 'unknown') continue;
 
-        final uniqueName = '${const Uuid().v4()}_${p.basename(file.path!)}';
+        final uniqueName = '${const Uuid().v4()}_${p.basename(file.path)}';
         final destPath = p.join(papersDir.path, uniqueName);
-        await File(file.path!).copy(destPath);
+        await File(file.path).copy(destPath);
 
         await repo.insertDocument({
-          'title': p.basenameWithoutExtension(file.path!),
+          'title': p.basenameWithoutExtension(file.path),
           'filePath': destPath,
           'fileType': fileType,
           'importDate': DateTime.now().millisecondsSinceEpoch,
