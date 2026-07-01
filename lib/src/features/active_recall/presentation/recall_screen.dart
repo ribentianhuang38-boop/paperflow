@@ -3,8 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
-import '../../../common/ai/ai_client.dart';
 import 'package:paperflow/src/common/providers.dart';
+import '../../../common/theme/colors.dart';
+import '../../../common/theme/typography.dart';
 import '../../library/presentation/library_screen.dart';
 
 class RecallScreen extends ConsumerStatefulWidget {
@@ -18,7 +19,7 @@ class RecallScreen extends ConsumerStatefulWidget {
 class _RecallScreenState extends ConsumerState<RecallScreen> {
   final PageController _pageController = PageController();
   final TextEditingController _answerController = TextEditingController();
-  final SpeechToText _speechToText = SpeechToText();
+  final SpeechToText _speech = SpeechToText();
 
   List<String> _paragraphs = [];
   List<String> _answers = [];
@@ -30,7 +31,7 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
   void initState() {
     super.initState();
     _loadDocument();
-    _speechToText.initialize();
+    _speech.initialize();
   }
 
   @override
@@ -48,7 +49,7 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
         _paragraphs = [
           'This is a sample paragraph from the document. In a real implementation, the document would be parsed into meaningful paragraphs for recall practice.',
           'Another paragraph that demonstrates the active recall feature. The user would read the paper, then try to recall what each paragraph was about.',
-          'A third paragraph covering the methodology section. Users should describe the approach taken by the authors and the key techniques used.',
+          'A third paragraph covering the methodology section. Users should describe the approach taken by the authors.',
         ];
         _answers = List.filled(_paragraphs.length, '');
       });
@@ -57,104 +58,198 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     if (_paragraphs.isEmpty) {
-      return Scaffold(appBar: AppBar(title: const Text('Active Recall')),
-          body: const Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
+        body: const Center(child: CircularProgressIndicator()),
+      );
     }
 
     return Scaffold(
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
       appBar: AppBar(
-        title: Text('Paragraph ${_currentIndex + 1} / ${_paragraphs.length}'),
+        title: Text(
+          '${_currentIndex + 1} / ${_paragraphs.length}',
+          style: AppTypography.subheadline.copyWith(
+            color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+          ),
+        ),
+        centerTitle: true,
         actions: [
           TextButton(
             onPressed: _isSubmitting ? null : _submitAll,
-            child: _isSubmitting
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Finish'),
+            child: Text('Done', style: AppTypography.headline.copyWith(color: AppColors.accent)),
           ),
         ],
       ),
-      body: Column(children: [
-        LinearProgressIndicator(value: (_currentIndex + 1) / _paragraphs.length),
-        Expanded(
-          child: PageView.builder(
-            controller: _pageController,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _paragraphs.length,
-            onPageChanged: (i) {
-              setState(() { _currentIndex = i; _answerController.text = _answers[i]; });
-            },
-            itemBuilder: (ctx, i) => SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(_paragraphs[i],
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.6)),
-                ),
-                const SizedBox(height: 24),
-                Text('Describe what this paragraph means',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500)),
-                const SizedBox(height: 8),
-                Text('What did the author express here?',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600)),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _answerController,
-                  maxLines: 6,
-                  decoration: InputDecoration(
-                    hintText: 'Write your recall here...',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    filled: true,
-                    fillColor: Theme.of(context).colorScheme.surface,
-                  ),
-                  onChanged: (v) => _answers[i] = v,
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _toggleVoice,
-                    icon: Icon(_isListening ? Icons.mic : Icons.mic_none, color: _isListening ? Colors.red : null),
-                    label: Text(_isListening ? 'Listening...' : 'Voice Input'),
-                  ),
-                ),
-              ]),
+      body: Column(
+        children: [
+          // Progress bar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                value: (_currentIndex + 1) / _paragraphs.length,
+                backgroundColor: isDark ? AppColors.darkDivider : AppColors.divider,
+                valueColor: const AlwaysStoppedAnimation(AppColors.accent),
+                minHeight: 3,
+              ),
             ),
           ),
-        ),
-        SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(children: [
-              Expanded(child: OutlinedButton(
-                  onPressed: _currentIndex > 0 ? () => _pageController.previousPage(
-                      duration: const Duration(milliseconds: 300), curve: Curves.easeInOut) : null,
-                  child: const Text('Previous'))),
-              const SizedBox(width: 16),
-              Expanded(child: FilledButton(
-                  onPressed: _currentIndex < _paragraphs.length - 1
-                      ? () => _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut)
-                      : _submitAll,
-                  child: Text(_currentIndex < _paragraphs.length - 1 ? 'Next' : 'Finish'))),
-            ]),
+          Expanded(
+            child: PageView.builder(
+              controller: _pageController,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _paragraphs.length,
+              onPageChanged: (i) {
+                setState(() { _currentIndex = i; _answerController.text = _answers[i]; });
+              },
+              itemBuilder: (ctx, i) => SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Paragraph card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.darkSurface : AppColors.surface,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        _paragraphs[i],
+                        style: AppTypography.body.copyWith(
+                          color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'What does this paragraph mean?',
+                      style: AppTypography.title3.copyWith(
+                        color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Describe what the author is expressing here.',
+                      style: AppTypography.subheadline.copyWith(
+                        color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Input
+                    TextField(
+                      controller: _answerController,
+                      maxLines: 5,
+                      style: AppTypography.bodySans.copyWith(
+                        color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Write your recall here...',
+                        fillColor: isDark ? AppColors.darkSurfaceSecondary : AppColors.surfaceSecondary,
+                      ),
+                      onChanged: (v) => _answers[i] = v,
+                    ),
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onTap: _toggleVoice,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppColors.darkSurfaceSecondary : AppColors.surfaceSecondary,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _isListening ? Icons.mic : Icons.mic_none,
+                              size: 20,
+                              color: _isListening ? AppColors.error : (isDark ? AppColors.darkTextSecondary : AppColors.textSecondary),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _isListening ? 'Listening...' : 'Voice Input',
+                              style: AppTypography.subheadline.copyWith(
+                                color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
-      ]),
+          // Bottom buttons
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: _currentIndex > 0
+                          ? () => _pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeOut)
+                          : null,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppColors.darkSurfaceSecondary : AppColors.surfaceSecondary,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Center(
+                          child: Text('Previous', style: AppTypography.headline.copyWith(
+                            color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                          )),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: _currentIndex < _paragraphs.length - 1
+                          ? () => _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeOut)
+                          : _submitAll,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Center(
+                          child: Text(
+                            _currentIndex < _paragraphs.length - 1 ? 'Next' : 'Finish',
+                            style: AppTypography.headline.copyWith(color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Future<void> _toggleVoice() async {
     if (_isListening) {
-      await _speechToText.stop();
+      await _speech.stop();
       setState(() => _isListening = false);
     } else {
       setState(() => _isListening = true);
-      await _speechToText.listen(onResult: (r) {
+      await _speech.listen(onResult: (r) {
         setState(() { _answerController.text = r.recognizedWords; _answers[_currentIndex] = r.recognizedWords; });
       });
     }
@@ -193,29 +288,22 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
     }
   }
 
-  String get _systemPrompt => '''You are an academic paper reading comprehension evaluator. Evaluate strictly according to the rubric.
+  String get _systemPrompt => '''You are an academic paper reading comprehension evaluator. Evaluate strictly.
 
-Scoring Rubric (0-100):
-- 90-100: Accurately restates core contributions, method details, experimental conclusions, no significant errors
-- 70-89: Understands main ideas, some details vague or minor errors
-- 50-69: Understands general direction, but significant misunderstandings in method/experiment
-- 30-49: Only understands background and motivation, core content misunderstood
+Scoring (0-100):
+- 90-100: Accurate restatement, no significant errors
+- 70-89: Main ideas understood, some details vague
+- 50-69: General direction, significant method/experiment misunderstandings
+- 30-49: Only background/motivation, core misunderstood
 - 0-29: Basically no understanding
 
-Rules:
-1. Quote key expressions from the user's response
-2. Compare with the original text
-3. Give clear correct / partial / wrong judgment
-4. Incomplete but correct statements: do not deduct points
-5. Only deduct for incorrect statements
-
-Output: Strict JSON only
-{"overall_understanding":82,"misunderstood_paragraphs":[{"index":0,"score":60,"judgment":"partial","reason":"..."}],"suggestions":["..."]}''';
+Rules: Quote user's words, compare with original, give correct/partial/wrong. Only deduct for incorrect statements.
+Output: Strict JSON {"overall_understanding":82,"misunderstood_paragraphs":[{"index":0,"score":60,"judgment":"partial","reason":"..."}],"suggestions":["..."]}''';
 
   String get _userPrompt {
-    final buf = StringBuffer('Evaluate the following recall responses:\n\n');
+    final buf = StringBuffer('Evaluate recall responses:\n\n');
     for (int i = 0; i < _paragraphs.length; i++) {
-      buf.writeln('[Paragraph ${i + 1}]');
+      buf.writeln('[Paragraph ${i+1}]');
       buf.writeln('Original: ${_paragraphs[i]}');
       buf.writeln('User recall: ${_answers[i]}\n');
     }

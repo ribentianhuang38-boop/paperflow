@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:paperflow/src/common/providers.dart';
+import '../../../common/theme/colors.dart';
+import '../../../common/theme/typography.dart';
 
 class ReviewResultScreen extends ConsumerWidget {
   final int sessionId;
@@ -10,110 +12,254 @@ class ReviewResultScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
       appBar: AppBar(
-        title: const Text('AI Review'),
-        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/')),
+        title: Text('Review', style: AppTypography.title2.copyWith(
+          color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+        )),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go('/'),
+        ),
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _loadAnswers(ref),
+        future: _load(ref),
         builder: (ctx, snap) {
           if (!snap.hasData) return const Center(child: CircularProgressIndicator());
           final answers = snap.data!;
-          if (answers.isEmpty) return const Center(child: Text('No review data'));
+          if (answers.isEmpty) return Center(child: Text('No data', style: AppTypography.bodySans));
 
           final scored = answers.where((a) => a['aiScore'] != null).toList();
           final avg = scored.isEmpty ? 0.0
               : scored.map((a) => a['aiScore'] as double).reduce((a, b) => a + b) / scored.length;
+          final wrong = answers.where((a) => a['aiJudgment'] == 'wrong').toList();
+          final partial = answers.where((a) => a['aiJudgment'] == 'partial').toList();
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(24),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _buildOverall(context, avg, answers.length),
-              const SizedBox(height: 32),
-              _buildDetails(context, answers),
-            ]),
+            child: Column(
+              children: [
+                // Overall score card
+                _ScoreCard(score: avg, isDark: isDark),
+                const SizedBox(height: 24),
+
+                // Section scores
+                if (wrong.isNotEmpty) ...[
+                  _StatusCard(
+                    icon: Icons.close,
+                    color: AppColors.error,
+                    label: 'Misunderstood',
+                    count: wrong.length,
+                    isDark: isDark,
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                if (partial.isNotEmpty) ...[
+                  _StatusCard(
+                    icon: Icons.warning_amber,
+                    color: AppColors.warning,
+                    label: 'Need Review',
+                    count: partial.length,
+                    isDark: isDark,
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                if (wrong.isEmpty && partial.isEmpty)
+                  _StatusCard(
+                    icon: Icons.check_circle,
+                    color: AppColors.success,
+                    label: 'You understood well',
+                    count: 0,
+                    isDark: isDark,
+                  ),
+                const SizedBox(height: 24),
+
+                // Paragraph details
+                ...answers.map((a) => _AnswerCard(data: a, isDark: isDark)),
+              ],
+            ),
           );
         },
       ),
     );
   }
 
-  Future<List<Map<String, dynamic>>> _loadAnswers(WidgetRef ref) async {
+  Future<List<Map<String, dynamic>>> _load(WidgetRef ref) async {
     final dao = await ref.read(recallSessionDaoProvider.future);
     return dao.getAnswersBySession(sessionId);
   }
+}
 
-  Widget _buildOverall(BuildContext context, double score, int total) {
-    final color = score >= 80 ? Colors.green : score >= 60 ? Colors.orange : Colors.red;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(children: [
-          Text('Overall Understanding', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey.shade600)),
-          const SizedBox(height: 16),
+class _ScoreCard extends StatelessWidget {
+  final double score;
+  final bool isDark;
+
+  const _ScoreCard({required this.score, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = score >= 80 ? AppColors.success : score >= 60 ? AppColors.warning : AppColors.error;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.surface,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        children: [
+          Text('Overall Understanding', style: AppTypography.subheadline.copyWith(
+            color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+          )),
+          const SizedBox(height: 20),
           SizedBox(
-            width: 120, height: 120,
-            child: Stack(alignment: Alignment.center, children: [
-              CircularProgressIndicator(value: score / 100, strokeWidth: 8,
-                  backgroundColor: Colors.grey.shade200, valueColor: AlwaysStoppedAnimation(color)),
-              Column(mainAxisSize: MainAxisSize.min, children: [
-                Text('${score.round()}%',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700, color: color)),
-                Text(score >= 80 ? 'You Understood Well' : 'Need Review',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600)),
-              ]),
-            ]),
+            width: 120,
+            height: 120,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 120,
+                  height: 120,
+                  child: CircularProgressIndicator(
+                    value: score / 100,
+                    strokeWidth: 8,
+                    backgroundColor: isDark ? AppColors.darkDivider : AppColors.divider,
+                    valueColor: AlwaysStoppedAnimation(color),
+                  ),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('${score.round()}%', style: AppTypography.title1.copyWith(color: color)),
+                    Text(score >= 80 ? 'Well done' : 'Keep going', style: AppTypography.caption1.copyWith(
+                      color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+                    )),
+                  ],
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 16),
-          Text('You recalled $total paragraphs', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600)),
-        ]),
+        ],
       ),
     );
   }
+}
 
-  Widget _buildDetails(BuildContext context, List<Map<String, dynamic>> answers) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('Paragraph Details', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-      const SizedBox(height: 12),
-      ...answers.map((a) {
-        final judgment = a['aiJudgment'] as String?;
-        final color = judgment == 'correct' ? Colors.green
-            : judgment == 'partial' ? Colors.orange : Colors.red;
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Text('Paragraph ${(a['paragraphIdx'] as int) + 1}',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-                const Spacer(),
-                if (a['aiScore'] != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
-                    child: Text('${(a['aiScore'] as double).round()}%',
-                        style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 12)),
-                  ),
-              ]),
-              if (judgment != null) ...[
-                const SizedBox(height: 8),
+class _StatusCard extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String label;
+  final int count;
+  final bool isDark;
+
+  const _StatusCard({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.count,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(width: 12),
+          Text(label, style: AppTypography.headline.copyWith(
+            color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+          )),
+          if (count > 0) ...[
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text('$count', style: AppTypography.caption1.copyWith(color: color, fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AnswerCard extends StatelessWidget {
+  final Map<String, dynamic> data;
+  final bool isDark;
+
+  const _AnswerCard({required this.data, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    final judgment = data['aiJudgment'] as String?;
+    final color = judgment == 'correct' ? AppColors.success
+        : judgment == 'partial' ? AppColors.warning : AppColors.error;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text('Paragraph ${(data['paragraphIdx'] as int) + 1}',
+                  style: AppTypography.headline.copyWith(
+                    color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                  )),
+              const Spacer(),
+              if (data['aiScore'] != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
-                  child: Text(judgment.toUpperCase(),
-                      style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text('${(data['aiScore'] as double).round()}%',
+                      style: AppTypography.caption1.copyWith(color: color, fontWeight: FontWeight.w600)),
                 ),
-              ],
-              if (a['aiFeedback'] != null && (a['aiFeedback'] as String).isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(a['aiFeedback'] as String, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade700)),
-              ],
-            ]),
+            ],
           ),
-        );
-      }),
-    ]);
+          if (judgment != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(judgment.toUpperCase(),
+                  style: AppTypography.caption2.copyWith(color: color)),
+            ),
+          ],
+          if (data['aiFeedback'] != null && (data['aiFeedback'] as String).isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(data['aiFeedback'] as String, style: AppTypography.subheadline.copyWith(
+              color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+            )),
+          ],
+        ],
+      ),
+    );
   }
 }

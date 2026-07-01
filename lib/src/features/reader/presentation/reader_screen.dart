@@ -1,12 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:epubx/epubx.dart';
-import 'package:paperflow/src/features/library/domain/document.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:epubx/epubx.dart';
 
 import 'package:paperflow/src/common/providers.dart';
+import '../../../common/theme/colors.dart';
+import '../../../common/theme/typography.dart';
 import '../../library/domain/document.dart';
 import '../../library/presentation/library_screen.dart';
 
@@ -24,37 +25,41 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
       appBar: AppBar(
         title: FutureBuilder<Document?>(
           future: _loadDoc(),
           builder: (ctx, snap) => Text(
-            snap.data?.title ?? 'Reader',
-            maxLines: 1, overflow: TextOverflow.ellipsis,
+            snap.data?.title ?? '',
+            style: AppTypography.subheadline.copyWith(
+              color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+            ),
           ),
         ),
+        centerTitle: true,
         actions: [
           if (_totalPages > 0)
             Center(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Text('$_currentPage / $_totalPages',
-                    style: Theme.of(context).textTheme.bodySmall),
+                padding: const EdgeInsets.only(right: 16),
+                child: Text(
+                  '$_currentPage / $_totalPages',
+                  style: AppTypography.caption1.copyWith(
+                    color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+                  ),
+                ),
               ),
             ),
-          IconButton(
-            icon: const Icon(Icons.quiz_outlined),
-            tooltip: 'Start Review',
-            onPressed: () => context.push('/recall/${widget.documentId}'),
-          ),
         ],
       ),
       body: FutureBuilder<Document?>(
         future: _loadDoc(),
         builder: (ctx, snap) {
           if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-          final doc = snap.data!;
-          return _buildReader(doc);
+          return _buildReader(snap.data!, isDark);
         },
       ),
     );
@@ -65,18 +70,19 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     return repo.getDocumentById(widget.documentId);
   }
 
-  Widget _buildReader(Document doc) {
+  Widget _buildReader(Document doc, bool isDark) {
     switch (doc.fileType) {
-      case 'pdf': return _buildPdfReader(doc);
-      case 'epub': return _buildEpubReader(doc);
-      case 'md': case 'html': case 'txt': return _buildTextReader(doc);
-      default: return const Center(child: Text('Unsupported file type'));
+      case 'pdf': return _buildPdf(doc);
+      case 'epub': return _buildEpub(doc, isDark);
+      case 'md': case 'html': case 'txt': return _buildText(doc, isDark);
+      default: return Center(child: Text('Unsupported', style: AppTypography.bodySans));
     }
   }
 
-  Widget _buildPdfReader(Document doc) {
-    final file = File(doc.filePath);
-    if (!file.existsSync()) return const Center(child: Text('PDF file not found'));
+  Widget _buildPdf(Document doc) {
+    if (!File(doc.filePath).existsSync()) {
+      return const Center(child: Text('File not found'));
+    }
     return PDFView(
       filePath: doc.filePath,
       enableSwipe: true,
@@ -90,62 +96,63 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     );
   }
 
-  Widget _buildEpubReader(Document doc) {
+  Widget _buildEpub(Document doc, bool isDark) {
     return FutureBuilder<String>(
       future: _loadEpub(doc.filePath),
       builder: (ctx, snap) {
         if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-        return SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 680),
-              child: SelectableText(snap.data!,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.6, fontSize: 18)),
-            ),
-          ),
-        );
+        return _buildReaderContent(snap.data!, isDark);
       },
     );
   }
 
-  Widget _buildTextReader(Document doc) {
+  Widget _buildText(Document doc, bool isDark) {
     return FutureBuilder<String>(
       future: File(doc.filePath).readAsString(),
       builder: (ctx, snap) {
         if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-        return SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 680),
-              child: SelectableText(snap.data!,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.6, fontSize: 18)),
-            ),
-          ),
-        );
+        return _buildReaderContent(snap.data!, isDark);
       },
     );
   }
 
-  Future<String> _loadEpub(String filePath) async {
+  Widget _buildReaderContent(String content, bool isDark) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 640),
+          child: SelectableText(
+            content,
+            style: AppTypography.body.copyWith(
+              color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+              fontSize: 18,
+              height: 1.7,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<String> _loadEpub(String path) async {
     try {
-      final bytes = await File(filePath).readAsBytes();
+      final bytes = await File(path).readAsBytes();
       final book = await EpubReader.readBook(bytes);
-      final buffer = StringBuffer();
-      for (final chapter in book.Chapters ?? []) {
-        if (chapter.Title != null) buffer.writeln('\n${chapter.Title}\n');
-        if (chapter.HtmlContent != null) {
-          buffer.writeln(chapter.HtmlContent!
+      final buf = StringBuffer();
+      for (final ch in book.Chapters ?? []) {
+        if (ch.Title != null) buf.writeln('\n${ch.Title}\n');
+        if (ch.HtmlContent != null) {
+          buf.writeln(ch.HtmlContent!
               .replaceAll(RegExp(r'<[^>]*>'), '')
               .replaceAll('&nbsp;', ' ')
               .replaceAll('&amp;', '&')
               .trim());
-          buffer.writeln();
+          buf.writeln();
         }
       }
-      return buffer.toString().isEmpty ? 'Could not parse EPUB' : buffer.toString();
-    } catch (e) { return 'Error loading EPUB: $e'; }
+      return buf.toString().isEmpty ? 'Could not parse EPUB' : buf.toString();
+    } catch (e) { return 'Error: $e'; }
   }
 
   void _saveProgress(Document doc) {

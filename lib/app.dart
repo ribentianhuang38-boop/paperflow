@@ -18,8 +18,8 @@ class PaperFlowApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'PaperFlow',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme(),
-      darkTheme: AppTheme.darkTheme(),
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
       themeMode: themeMode,
       locale: locale,
       localizationsDelegates: const [
