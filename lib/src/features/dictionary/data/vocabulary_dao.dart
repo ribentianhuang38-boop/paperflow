@@ -1,27 +1,30 @@
-import 'package:drift/drift.dart';
+import 'package:sqflite/sqflite.dart';
 import '../../../common/database/app_database.dart';
-import '../../../common/database/tables.dart';
 
-part 'vocabulary_dao.g.dart';
+class VocabularyDao {
+  final AppDatabase _db;
 
-@DriftAccessor(tables: [Vocabulary])
-class VocabularyDao extends DatabaseAccessor<AppDatabase>
-    with _$VocabularyDaoMixin {
-  VocabularyDao(super.db);
+  VocabularyDao(this._db);
 
-  Future<List<VocabularyData>> getAllVocabulary() =>
-      (select(vocabulary)..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
-          .get();
+  Future<List<Map<String, dynamic>>> getAllVocabulary() async {
+    final db = await _db.database;
+    return db.query('vocabulary', orderBy: 'createdAt DESC');
+  }
 
-  Future<List<VocabularyData>> getVocabularyByDocument(int documentId) =>
-      (select(vocabulary)
-            ..where((t) => t.documentId.equals(documentId))
-            ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
-          .get();
+  Future<List<Map<String, dynamic>>> getVocabularyByDocument(
+      int documentId) async {
+    final db = await _db.database;
+    return db.query('vocabulary',
+        where: 'documentId = ?', whereArgs: [documentId], orderBy: 'createdAt DESC');
+  }
 
-  Future<VocabularyData?> getVocabularyByWord(String word) =>
-      (select(vocabulary)..where((t) => t.word.equals(word.toLowerCase())))
-          .getSingleOrNull();
+  Future<Map<String, dynamic>?> getVocabularyByWord(String word) async {
+    final db = await _db.database;
+    final maps = await db.query('vocabulary',
+        where: 'word = ?', whereArgs: [word.toLowerCase()]);
+    if (maps.isEmpty) return null;
+    return maps.first;
+  }
 
   Future<int> addWord({
     required String word,
@@ -31,65 +34,79 @@ class VocabularyDao extends DatabaseAccessor<AppDatabase>
     String? context,
     required int documentId,
   }) async {
+    final db = await _db.database;
     final now = DateTime.now().millisecondsSinceEpoch;
-    return into(vocabulary).insert(VocabularyCompanion(
-      word: Value(word.toLowerCase()),
-      definition: Value(definition),
-      cnDefinition: Value(cnDefinition),
-      pos: Value(pos),
-      context: Value(context),
-      documentId: Value(documentId),
-      createdAt: Value(now),
-      lastQueriedAt: Value(now),
-    ));
+    return db.insert('vocabulary', {
+      'word': word.toLowerCase(),
+      'definition': definition,
+      'cnDefinition': cnDefinition,
+      'pos': pos,
+      'context': context,
+      'documentId': documentId,
+      'createdAt': now,
+      'lastQueriedAt': now,
+    });
   }
 
   Future<void> updateQueryInfo(int id) async {
-    final item = await (select(vocabulary)..where((t) => t.id.equals(id)))
-        .getSingleOrNull();
-    if (item != null) {
-      (update(vocabulary)..where((t) => t.id.equals(id))).write(
-          VocabularyCompanion(
-            lastQueriedAt: Value(DateTime.now().millisecondsSinceEpoch),
-            queryCount: Value(item.queryCount + 1),
-            contextMastered: const Value(false),
-            globalMastered: const Value(false),
-          ));
+    final db = await _db.database;
+    final maps =
+        await db.query('vocabulary', where: 'id = ?', whereArgs: [id]);
+    if (maps.isNotEmpty) {
+      final item = maps.first;
+      await db.update(
+        'vocabulary',
+        {
+          'lastQueriedAt': DateTime.now().millisecondsSinceEpoch,
+          'queryCount': (item['queryCount'] as int) + 1,
+          'contextMastered': 0,
+          'globalMastered': 0,
+        },
+        where: 'id = ?',
+        whereArgs: [id],
+      );
     }
   }
 
-  Future<void> markContextMastered(int id) =>
-      (update(vocabulary)..where((t) => t.id.equals(id)))
-          .write(const VocabularyCompanion(contextMastered: Value(true)));
+  Future<void> markContextMastered(int id) async {
+    final db = await _db.database;
+    await db.update('vocabulary', {'contextMastered': 1},
+        where: 'id = ?', whereArgs: [id]);
+  }
 
   Future<void> checkGlobalMastered() async {
-    final twoWeeksAgo = DateTime.now()
-        .subtract(const Duration(days: 14))
-        .millisecondsSinceEpoch;
-    await (update(vocabulary)
-          ..where((t) =>
-              t.lastQueriedAt.isSmallerThanValue(twoWeeksAgo) &
-              t.globalMastered.equals(false)))
-        .write(const VocabularyCompanion(globalMastered: Value(true)));
+    final db = await _db.database;
+    final twoWeeksAgo =
+        DateTime.now().subtract(const Duration(days: 14)).millisecondsSinceEpoch;
+    await db.update(
+      'vocabulary',
+      {'globalMastered': 1 },
+      where: 'lastQueriedAt < ? AND globalMastered = 0',
+      whereArgs: [twoWeeksAgo],
+    );
   }
 
   Future<int> getMasteredCount() async {
-    final results =
-        await (select(vocabulary)..where((t) => t.globalMastered.equals(true)))
-            .get();
-    return results.length;
+    final db = await _db.database;
+    final result = await db.rawQuery(
+        'SELECT COUNT(*) as count FROM vocabulary WHERE globalMastered = 1');
+    return Sqflite.firstIntValue(result) ?? 0;
   }
 
   Future<int> getTotalCount() async {
-    final results = await select(vocabulary).get();
-    return results.length;
+    final db = await _db.database;
+    final result =
+        await db.rawQuery('SELECT COUNT(*) as count FROM vocabulary');
+    return Sqflite.firstIntValue(result) ?? 0;
   }
 
-  Future<int> deleteVocabulary(int id) =>
-      (delete(vocabulary)..where((t) => t.id.equals(id))).go();
+  Future<int> deleteVocabulary(int id) async {
+    final db = await _db.database;
+    return db.delete('vocabulary', where: 'id = ?', whereArgs: [id]);
+  }
 
   Future<List<String>> exportVocabulary() async {
     final items = await getAllVocabulary();
-    return items.map((item) => item.word).toList();
+    return items.map((item) => item['word'] as String).toList();
   }
 }

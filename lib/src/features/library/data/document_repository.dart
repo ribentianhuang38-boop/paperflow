@@ -1,77 +1,91 @@
-import 'package:drift/drift.dart';
-import '../../common/database/app_database.dart';
-import '../../common/database/tables.dart';
+import 'package:sqflite/sqflite.dart';
+import '../../../common/database/app_database.dart';
+import '../domain/document.dart';
 
 class DocumentRepository {
   final AppDatabase _db;
 
   DocumentRepository(this._db);
 
-  Future<List<Document>> getAllDocuments() =>
-      _db.select(_db.documents).get();
+  Future<List<Document>> getAllDocuments() async {
+    final db = await _db.database;
+    final maps = await db.query('documents', orderBy: 'lastReadTime DESC');
+    return maps.map(Document.fromMap).toList();
+  }
 
-  Future<List<Document>> getRecentDocuments({int limit = 10}) =>
-      (_db.select(_db.documents)
-            ..where((t) => t.lastReadTime.isNotNull())
-            ..orderBy([(t) => OrderingTerm.desc(t.lastReadTime)])
-            ..limit(limit))
-          .get();
+  Future<List<Document>> getRecentDocuments({int limit = 10}) async {
+    final db = await _db.database;
+    final maps = await db.query(
+      'documents',
+      where: 'lastReadTime IS NOT NULL',
+      orderBy: 'lastReadTime DESC',
+      limit: limit,
+    );
+    return maps.map(Document.fromMap).toList();
+  }
 
-  Future<List<Document>> getContinueReading() =>
-      (_db.select(_db.documents)
-            ..where((t) =>
-                t.progress.isBiggerThan(const Constant(0.0)) &
-                t.progress.isSmallerThan(const Constant(1.0)))
-            ..orderBy([(t) => OrderingTerm.desc(t.lastReadTime)]))
-          .get();
+  Future<List<Document>> getContinueReading() async {
+    final db = await _db.database;
+    final maps = await db.query(
+      'documents',
+      where: 'progress > 0.0 AND progress < 1.0',
+      orderBy: 'lastReadTime DESC',
+    );
+    return maps.map(Document.fromMap).toList();
+  }
 
-  Future<List<Document>> searchDocuments(String query) =>
-      (_db.select(_db.documents)
-            ..where((t) =>
-                t.title.like('%$query%') |
-                t.authors.like('%$query%')))
-          .get();
+  Future<List<Document>> searchDocuments(String query) async {
+    final db = await _db.database;
+    final maps = await db.query(
+      'documents',
+      where: 'title LIKE ? OR authors LIKE ?',
+      whereArgs: ['%$query%', '%$query%'],
+    );
+    return maps.map(Document.fromMap).toList();
+  }
 
-  Future<Document?> getDocumentById(int id) =>
-      (_db.select(_db.documents)..where((t) => t.id.equals(id)))
-          .getSingleOrNull();
+  Future<Document?> getDocumentById(int id) async {
+    final db = await _db.database;
+    final maps = await db.query('documents', where: 'id = ?', whereArgs: [id]);
+    if (maps.isEmpty) return null;
+    return Document.fromMap(maps.first);
+  }
 
-  Future<void> updateProgress(int id, double progress) =>
-      (_db.update(_db.documents)..where((t) => t.id.equals(id)))
-          .write(DocumentsCompanion(progress: Value(progress)));
+  Future<int> insertDocument(Map<String, dynamic> data) async {
+    final db = await _db.database;
+    return db.insert('documents', data);
+  }
 
-  Future<void> updateLastReadTime(int id) =>
-      (_db.update(_db.documents)..where((t) => t.id.equals(id))).write(
-          DocumentsCompanion(
-              lastReadTime: Value(DateTime.now().millisecondsSinceEpoch)));
+  Future<void> updateProgress(int id, double progress) async {
+    final db = await _db.database;
+    await db.update('documents', {'progress': progress},
+        where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> updateLastReadTime(int id) async {
+    final db = await _db.database;
+    await db.update(
+        'documents', {'lastReadTime': DateTime.now().millisecondsSinceEpoch},
+        where: 'id = ?', whereArgs: [id]);
+  }
 
   Future<void> toggleFavorite(int id) async {
+    final db = await _db.database;
     final doc = await getDocumentById(id);
     if (doc != null) {
-      (_db.update(_db.documents)..where((t) => t.id.equals(id))).write(
-          DocumentsCompanion(isFavorite: Value(!doc.isFavorite)));
+      await db.update('documents', {'isFavorite': doc.isFavorite ? 0 : 1},
+          where: 'id = ?', whereArgs: [id]);
     }
   }
 
   Future<void> deleteDocument(int id) async {
-    final doc = await getDocumentById(id);
-    if (doc != null) {
-      await (_db.delete(_db.documents)..where((t) => t.id.equals(id))).go();
-      try {
-        await _db.customStatement(
-          'DELETE FROM bookmarks WHERE documentId = ?', [id],
-        );
-        await _db.customStatement(
-          'DELETE FROM highlights WHERE documentId = ?', [id],
-        );
-        await _db.customStatement(
-          'DELETE FROM reading_positions WHERE documentId = ?', [id],
-        );
-      } catch (_) {}
-    }
+    final db = await _db.database;
+    await db.delete('documents', where: 'id = ?', whereArgs: [id]);
   }
 
-  Future<void> renameDocument(int id, String newTitle) =>
-      (_db.update(_db.documents)..where((t) => t.id.equals(id)))
-          .write(DocumentsCompanion(title: Value(newTitle)));
+  Future<void> renameDocument(int id, String newTitle) async {
+    final db = await _db.database;
+    await db.update('documents', {'title': newTitle},
+        where: 'id = ?', whereArgs: [id]);
+  }
 }

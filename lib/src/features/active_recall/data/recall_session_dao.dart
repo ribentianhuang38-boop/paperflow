@@ -1,49 +1,70 @@
-import 'package:drift/drift.dart';
-import '../../common/database/app_database.dart';
-import '../../common/database/tables.dart';
+import 'package:sqflite/sqflite.dart';
+import '../../../common/database/app_database.dart';
 
-part 'recall_session_dao.g.dart';
+class RecallSessionDao {
+  final AppDatabase _db;
 
-@DriftAccessor(tables: [RecallSessions, RecallAnswers])
-class RecallSessionDao extends DatabaseAccessor<AppDatabase>
-    with _$RecallSessionDaoMixin {
-  RecallSessionDao(super.db);
+  RecallSessionDao(this._db);
 
-  Future<List<RecallSession>> getSessionsByDocument(int documentId) =>
-      (select(recallSessions)
-            ..where((t) => t.documentId.equals(documentId))
-            ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
-          .get();
+  Future<List<Map<String, dynamic>>> getSessionsByDocument(
+      int documentId) async {
+    final db = await _db.database;
+    return db.query('recall_sessions',
+        where: 'documentId = ?', whereArgs: [documentId], orderBy: 'createdAt DESC');
+  }
 
-  Future<RecallSession?> getLatestSession(int documentId) =>
-      (select(recallSessions)
-            ..where((t) => t.documentId.equals(documentId))
-            ..orderBy([(t) => OrderingTerm.desc(t.createdAt)])
-            ..limit(1))
-          .getSingleOrNull();
+  Future<int> createSession(int documentId) async {
+    final db = await _db.database;
+    return db.insert('recall_sessions', {
+      'documentId': documentId,
+      'createdAt': DateTime.now().millisecondsSinceEpoch,
+    });
+  }
 
-  Future<int> createSession(RecallSessionsCompanion entry) =>
-      into(recallSessions).insert(entry);
+  Future<void> updateSessionScore(int sessionId, double score) async {
+    final db = await _db.database;
+    await db.update('recall_sessions', {'overallScore': score},
+        where: 'id = ?', whereArgs: [sessionId]);
+  }
 
-  Future<void> updateSessionScore(int sessionId, double score) =>
-      (update(recallSessions)..where((t) => t.id.equals(sessionId)))
-          .write(RecallSessionsCompanion(overallScore: Value(score)));
+  Future<int> insertAnswer({
+    required int sessionId,
+    required int paragraphIdx,
+    required String paragraphText,
+    required String userAnswer,
+  }) async {
+    final db = await _db.database;
+    return db.insert('recall_answers', {
+      'sessionId': sessionId,
+      'paragraphIdx': paragraphIdx,
+      'paragraphText': paragraphText,
+      'userAnswer': userAnswer,
+    });
+  }
 
-  Future<int> insertAnswer(RecallAnswersCompanion entry) =>
-      into(recallAnswers).insert(entry);
-
-  Future<List<RecallAnswer>> getAnswersBySession(int sessionId) =>
-      (select(recallAnswers)
-            ..where((t) => t.sessionId.equals(sessionId))
-            ..orderBy([(t) => OrderingTerm.asc(t.paragraphIdx)]))
-          .get();
+  Future<List<Map<String, dynamic>>> getAnswersBySession(
+      int sessionId) async {
+    final db = await _db.database;
+    return db.query('recall_answers',
+        where: 'sessionId = ?', whereArgs: [sessionId], orderBy: 'paragraphIdx ASC');
+  }
 
   Future<void> updateAnswer(
-          int answerId, double score, String judgment, String feedback) =>
-      (update(recallAnswers)..where((t) => t.id.equals(answerId))).write(
-          RecallAnswersCompanion(
-            aiScore: Value(score),
-            aiJudgment: Value(judgment),
-            aiFeedback: Value(feedback),
-          ));
+      int answerId, double score, String judgment, String feedback) async {
+    final db = await _db.database;
+    await db.update(
+      'recall_answers',
+      {'aiScore': score, 'aiJudgment': judgment, 'aiFeedback': feedback},
+      where: 'id = ?',
+      whereArgs: [answerId],
+    );
+  }
+
+  Future<Map<String, dynamic>?> getSessionById(int sessionId) async {
+    final db = await _db.database;
+    final maps = await db.query('recall_sessions',
+        where: 'id = ?', whereArgs: [sessionId]);
+    if (maps.isEmpty) return null;
+    return maps.first;
+  }
 }

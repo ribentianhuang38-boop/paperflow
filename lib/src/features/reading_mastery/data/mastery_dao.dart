@@ -1,46 +1,42 @@
-import 'package:drift/drift.dart';
-import '../../common/database/app_database.dart';
-import '../../common/database/tables.dart';
+import 'package:sqflite/sqflite.dart';
+import '../../../common/database/app_database.dart';
 
-part 'mastery_dao.g.dart';
+class MasteryDao {
+  final AppDatabase _db;
 
-@DriftAccessor(tables: [MasteryScores])
-class MasteryDao extends DatabaseAccessor<AppDatabase>
-    with _$MasteryDaoMixin {
-  MasteryDao(super.db);
+  MasteryDao(this._db);
 
-  Future<List<MasteryScore>> getScoresByDocument(int documentId) =>
-      (select(masteryScores)
-            ..where((t) => t.documentId.equals(documentId))
-            ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
-          .get();
+  Future<List<Map<String, dynamic>>> getScoresByDocument(
+      int documentId) async {
+    final db = await _db.database;
+    return db.query('mastery_scores',
+        where: 'documentId = ?', whereArgs: [documentId], orderBy: 'createdAt DESC');
+  }
 
-  Future<MasteryScore?> getLatestScore(int documentId) =>
-      (select(masteryScores)
-            ..where((t) => t.documentId.equals(documentId))
-            ..orderBy([(t) => OrderingTerm.desc(t.createdAt)])
-            ..limit(1))
-          .getSingleOrNull();
+  Future<Map<String, dynamic>?> getLatestScore(int documentId) async {
+    final db = await _db.database;
+    final maps = await db.query('mastery_scores',
+        where: 'documentId = ?', whereArgs: [documentId],
+        orderBy: 'createdAt DESC', limit: 1);
+    if (maps.isEmpty) return null;
+    return maps.first;
+  }
 
-  Future<int> insertScore(MasteryScoresCompanion entry) =>
-      into(masteryScores).insert(entry);
+  Future<int> insertScore(int documentId, double score) async {
+    final db = await _db.database;
+    return db.insert('mastery_scores', {
+      'documentId': documentId,
+      'score': score,
+      'createdAt': DateTime.now().millisecondsSinceEpoch,
+    });
+  }
 
-  Future<List<MasteryScore>> getScoresInRange(
-      int documentId, int startTimestamp) =>
-      (select(masteryScores)
-            ..where((t) =>
-                t.documentId.equals(documentId) &
-                t.createdAt.isBiggerThanValue(startTimestamp))
-            ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
-          .get();
-
-  Future<List<MasteryScore>> getAllRecentScores(int days) {
-    final startTimestamp = DateTime.now()
-        .subtract(Duration(days: days))
-        .millisecondsSinceEpoch;
-    return (select(masteryScores)
-          ..where((t) => t.createdAt.isBiggerThanValue(startTimestamp))
-          ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
-        .get();
+  Future<List<Map<String, dynamic>>> getAllRecentScores(int days) async {
+    final db = await _db.database;
+    final startTimestamp =
+        DateTime.now().subtract(Duration(days: days)).millisecondsSinceEpoch;
+    return db.query('mastery_scores',
+        where: 'createdAt > ?', whereArgs: [startTimestamp],
+        orderBy: 'createdAt ASC');
   }
 }

@@ -1,27 +1,24 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:paperflow/src/features/library/domain/document.dart';
 import 'package:go_router/go_router.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../common/database/app_database.dart';
-import '../data/document_repository.dart';
-import '../data/import_service.dart';
+import 'package:paperflow/src/common/providers.dart';
 import 'document_card.dart';
 
-final documentRepositoryProvider = Provider<DocumentRepository>((ref) {
-  return DocumentRepository(ref.watch(databaseProvider));
-});
-
-final importServiceProvider = Provider<ImportService>((ref) {
-  return ImportService(ref.watch(databaseProvider));
-});
-
 final documentsProvider = FutureProvider<List<Document>>((ref) async {
-  final repo = ref.watch(documentRepositoryProvider);
+  final repo = await ref.watch(documentRepositoryProvider.future);
   return repo.getAllDocuments();
 });
 
 final continueReadingProvider = FutureProvider<List<Document>>((ref) async {
-  final repo = ref.watch(documentRepositoryProvider);
+  final repo = await ref.watch(documentRepositoryProvider.future);
   return repo.getContinueReading();
 });
 
@@ -29,7 +26,7 @@ final searchQueryProvider = StateProvider<String>((ref) => '');
 
 final filteredDocumentsProvider = FutureProvider<List<Document>>((ref) async {
   final query = ref.watch(searchQueryProvider);
-  final repo = ref.watch(documentRepositoryProvider);
+  final repo = await ref.watch(documentRepositoryProvider.future);
   if (query.isEmpty) return repo.getAllDocuments();
   return repo.searchDocuments(query);
 });
@@ -73,19 +70,18 @@ class LibraryScreen extends ConsumerWidget {
                   Icon(Icons.library_books_outlined,
                       size: 80, color: Colors.grey.shade400),
                   const SizedBox(height: 16),
-                  Text(
-                    'No documents yet',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Colors.grey.shade600,
-                        ),
-                  ),
+                  Text('No documents yet',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(color: Colors.grey.shade600)),
                   const SizedBox(height: 8),
                   Text(
-                    'Import a PDF, EPUB, or other document to get started',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey.shade500,
-                        ),
-                  ),
+                      'Import a PDF, EPUB, or other document to get started',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(color: Colors.grey.shade500)),
                 ],
               ),
             );
@@ -103,13 +99,11 @@ class LibraryScreen extends ConsumerWidget {
                       Padding(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 8),
-                        child: Text(
-                          'Continue Reading',
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                        ),
+                        child: Text('Continue Reading',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w600)),
                       ),
                       SizedBox(
                         height: 200,
@@ -117,15 +111,11 @@ class LibraryScreen extends ConsumerWidget {
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           itemCount: continuing.length,
-                          itemBuilder: (context, index) {
-                            return SizedBox(
-                              width: 160,
-                              child: DocumentCard(
-                                document: continuing[index],
-                                compact: true,
-                              ),
-                            );
-                          },
+                          itemBuilder: (context, index) => SizedBox(
+                            width: 160,
+                            child: DocumentCard(
+                                document: continuing[index], compact: true),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -138,12 +128,11 @@ class LibraryScreen extends ConsumerWidget {
               Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text(
-                  'All Documents',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
+                child: Text('All Documents',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w600)),
               ),
               ...docs.map((doc) => DocumentCard(document: doc)),
             ],
@@ -159,13 +148,46 @@ class LibraryScreen extends ConsumerWidget {
 
   Future<void> _importDocument(
       BuildContext context, WidgetRef ref) async {
-    final importService = ref.read(importServiceProvider);
     try {
-      final ids = await importService.importMultipleDocuments();
-      if (ids.isNotEmpty) {
-        ref.invalidate(documentsProvider);
-        ref.invalidate(continueReadingProvider);
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'epub', 'md', 'markdown', 'html', 'htm', 'txt'],
+        allowMultiple: true,
+      );
+      if (result == null || result.files.isEmpty) return;
+
+      final repo = await ref.read(documentRepositoryProvider.future);
+      final appDir = await getApplicationDocumentsDirectory();
+      final papersDir = Directory(p.join(appDir.path, 'papers'));
+      if (!await papersDir.exists()) {
+        await papersDir.create(recursive: true);
       }
+
+      for (final file in result.files) {
+        if (file.path == null) continue;
+        final ext = p.extension(file.path!).toLowerCase();
+        final fileType = ext == '.pdf' ? 'pdf'
+            : ext == '.epub' ? 'epub'
+            : (ext == '.md' || ext == '.markdown') ? 'md'
+            : (ext == '.html' || ext == '.htm') ? 'html'
+            : ext == '.txt' ? 'txt' : 'unknown';
+
+        if (fileType == 'unknown') continue;
+
+        final uniqueName = '${const Uuid().v4()}_${p.basename(file.path!)}';
+        final destPath = p.join(papersDir.path, uniqueName);
+        await File(file.path!).copy(destPath);
+
+        await repo.insertDocument({
+          'title': p.basenameWithoutExtension(file.path!),
+          'filePath': destPath,
+          'fileType': fileType,
+          'importDate': DateTime.now().millisecondsSinceEpoch,
+        });
+      }
+
+      ref.invalidate(documentsProvider);
+      ref.invalidate(continueReadingProvider);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -179,11 +201,9 @@ class LibraryScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) {
-        final controller = TextEditingController();
         return AlertDialog(
           title: const Text('Search'),
           content: TextField(
-            controller: controller,
             autofocus: true,
             decoration: const InputDecoration(
               hintText: 'Search by title or author...',

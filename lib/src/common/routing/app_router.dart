@@ -14,53 +14,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/',
     routes: [
+      GoRoute(path: '/', name: 'library', builder: (_, __) => const LibraryScreen()),
       GoRoute(
-        path: '/',
-        name: 'library',
-        builder: (context, state) => const LibraryScreen(),
+        path: '/reader/:documentId', name: 'reader',
+        builder: (_, state) => ReaderScreen(documentId: int.parse(state.pathParameters['documentId']!)),
+      ),
+      GoRoute(path: '/vocabulary', name: 'vocabulary', builder: (_, __) => const VocabularyListScreen()),
+      GoRoute(
+        path: '/recall/:documentId', name: 'recall',
+        builder: (_, state) => RecallScreen(documentId: int.parse(state.pathParameters['documentId']!)),
       ),
       GoRoute(
-        path: '/reader/:documentId',
-        name: 'reader',
-        builder: (context, state) {
-          final documentId = int.parse(state.pathParameters['documentId']!);
-          return ReaderScreen(documentId: documentId);
-        },
+        path: '/review/:sessionId', name: 'review',
+        builder: (_, state) => ReviewResultScreen(sessionId: int.parse(state.pathParameters['sessionId']!)),
       ),
       GoRoute(
-        path: '/vocabulary',
-        name: 'vocabulary',
-        builder: (context, state) => const VocabularyListScreen(),
+        path: '/mastery/:documentId', name: 'mastery',
+        builder: (_, state) => MasteryDetailScreen(documentId: int.parse(state.pathParameters['documentId']!)),
       ),
-      GoRoute(
-        path: '/recall/:documentId',
-        name: 'recall',
-        builder: (context, state) {
-          final documentId = int.parse(state.pathParameters['documentId']!);
-          return RecallScreen(documentId: documentId);
-        },
-      ),
-      GoRoute(
-        path: '/review/:sessionId',
-        name: 'review',
-        builder: (context, state) {
-          final sessionId = int.parse(state.pathParameters['sessionId']!);
-          return ReviewResultScreen(sessionId: sessionId);
-        },
-      ),
-      GoRoute(
-        path: '/mastery/:documentId',
-        name: 'mastery',
-        builder: (context, state) {
-          final documentId = int.parse(state.pathParameters['documentId']!);
-          return MasteryDetailScreen(documentId: documentId);
-        },
-      ),
-      GoRoute(
-        path: '/settings',
-        name: 'settings',
-        builder: (context, state) => const SettingsScreen(),
-      ),
+      GoRoute(path: '/settings', name: 'settings', builder: (_, __) => const SettingsScreen()),
     ],
   );
 });

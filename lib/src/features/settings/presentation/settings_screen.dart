@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:paperflow/src/common/providers.dart';
 
 import '../../../common/ai/ai_client.dart';
 import '../data/settings_repository.dart';
