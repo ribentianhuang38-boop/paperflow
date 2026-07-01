@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -24,7 +24,7 @@ class ExploreScreen extends ConsumerStatefulWidget {
 }
 
 class _ExploreScreenState extends ConsumerState<ExploreScreen> {
-  InAppWebViewController? _webViewController;
+  late final WebViewController _webViewController;
   final TextEditingController _urlController = TextEditingController();
   final ReadabilityInjector _injector = ReadabilityInjector();
   String _currentUrl = '';
@@ -38,10 +38,49 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   void initState() {
     super.initState();
     _loadReadability();
+    _initWebView();
   }
 
   Future<void> _loadReadability() async {
     _injectScript = await _injector.getInjectScript();
+  }
+
+  void _initWebView() {
+    _webViewController = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (url) {
+            setState(() {
+              _currentUrl = url;
+              _urlController.text = url;
+              _isLoading = true;
+            });
+          },
+          onPageFinished: (url) async {
+            setState(() {
+              _isLoading = false;
+              _currentUrl = url;
+            });
+            final title = await _webViewController.getTitle();
+            if (title != null) {
+              setState(() => _currentTitle = title);
+            }
+            // Inject Readability.js
+            if (_injectScript != null) {
+              await _webViewController.runJavaScript(_injectScript!);
+            }
+          },
+          onProgress: (progress) {
+            setState(() => _progress = progress / 100);
+          },
+        ),
+      )
+      ..addJavaScriptChannel(
+        'onArticleExtracted',
+        onMessageReceived: (message) => _onArticleExtracted(message.message),
+      )
+      ..loadRequest(Uri.parse('https://arxiv.org'));
   }
 
   @override
@@ -59,10 +98,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // URL bar
             _buildUrlBar(isDark),
-
-            // Progress
             if (_isLoading)
               LinearProgressIndicator(
                 value: _progress,
@@ -70,64 +106,10 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                 valueColor: const AlwaysStoppedAnimation(AppColors.accent),
                 minHeight: 2,
               ),
-
-            // WebView
             Expanded(
               child: Stack(
                 children: [
-                  InAppWebView(
-                    initialUrlRequest: URLRequest(
-                      url: WebUri('https://arxiv.org'),
-                    ),
-                    initialSettings: InAppWebViewSettings(
-                      javaScriptEnabled: true,
-                      useOnLoadResource: true,
-                      useShouldOverrideUrlLoading: true,
-                      mediaPlaybackRequiresUserGesture: false,
-                      allowsInlineMediaPlayback: true,
-                      supportZoom: true,
-                      builtInZoomControls: false,
-                      displayZoomControls: false,
-                    ),
-                    onWebViewCreated: (controller) {
-                      _webViewController = controller;
-                      controller.addJavaScriptHandler(
-                        handlerName: 'onArticleExtracted',
-                        callback: _onArticleExtracted,
-                      );
-                    },
-                    onLoadStart: (controller, url) {
-                      setState(() {
-                        _currentUrl = url?.toString() ?? '';
-                        _urlController.text = _currentUrl;
-                        _isLoading = true;
-                      });
-                    },
-                    onLoadStop: (controller, url) async {
-                      setState(() {
-                        _isLoading = false;
-                        _currentUrl = url?.toString() ?? '';
-                        _urlController.text = _currentUrl;
-                      });
-                      // Get title
-                      final title = await controller.getTitle();
-                      if (title != null) {
-                        setState(() => _currentTitle = title);
-                      }
-                      // Inject Readability.js
-                      if (_injectScript != null) {
-                        await controller.evaluateJavascript(
-                          source: _injectScript!,
-                        );
-                      }
-                    },
-                    onProgressChanged: (controller, progress) {
-                      setState(() => _progress = progress / 100);
-                    },
-                    shouldOverrideUrlLoading: (controller, navigationAction) async {
-                      return NavigationActionPolicy.ALLOW;
-                    },
-                  ),
+                  WebViewWidget(controller: _webViewController),
 
                   // Capture gesture - left edge swipe
                   Positioned(
@@ -148,7 +130,9 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                   // Extracting overlay
                   if (_isExtracting)
                     Container(
-                      color: isDark ? AppColors.darkBackground.withOpacity(0.9) : AppColors.background.withOpacity(0.9),
+                      color: isDark
+                          ? AppColors.darkBackground.withOpacity(0.92)
+                          : AppColors.background.withOpacity(0.92),
                       child: Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -189,14 +173,12 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
       ),
       child: Row(
         children: [
-          // Back
           GestureDetector(
-            onTap: () => _webViewController?.goBack(),
+            onTap: () => _webViewController.goBack(),
             child: Icon(Icons.arrow_back_ios, size: 18,
                 color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary),
           ),
           const SizedBox(width: 12),
-          // URL input
           Expanded(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -225,7 +207,6 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
             ),
           ),
           const SizedBox(width: 12),
-          // Capture button
           GestureDetector(
             onTap: _captureArticle,
             child: Container(
@@ -252,19 +233,17 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   }
 
   Future<void> _captureArticle() async {
-    if (_webViewController == null || _injectScript == null) return;
+    if (_injectScript == null) return;
 
     setState(() => _isExtracting = true);
 
     try {
-      // First ensure Readability is injected
-      await _webViewController!.evaluateJavascript(source: _injectScript!);
-
-      // Wait a bit for the script to load
+      // Ensure Readability is injected
+      await _webViewController.runJavaScript(_injectScript!);
       await Future.delayed(const Duration(milliseconds: 500));
 
       // Run extraction
-      await _webViewController!.evaluateJavascript(source: _injector.getExtractScript());
+      await _webViewController.runJavaScript(_injector.getExtractScript());
     } catch (e) {
       setState(() => _isExtracting = false);
       if (mounted) {
@@ -275,11 +254,9 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     }
   }
 
-  void _onArticleExtracted(List<dynamic> args) async {
-    if (args.isEmpty) return;
-
+  void _onArticleExtracted(String message) async {
     try {
-      final json = jsonDecode(args[0] as String) as Map<String, dynamic>;
+      final json = jsonDecode(message) as Map<String, dynamic>;
 
       if (json.containsKey('error')) {
         setState(() => _isExtracting = false);
@@ -302,8 +279,6 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
 
       final uniqueName = '${const Uuid().v4()}.html';
       final destPath = p.join(papersDir.path, uniqueName);
-
-      // Build a clean HTML from the article
       final cleanHtml = _buildCleanHtml(article);
       await File(destPath).writeAsString(cleanHtml);
 
@@ -323,7 +298,6 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
       setState(() => _isExtracting = false);
 
       if (mounted) {
-        // Navigate to reader
         context.push('/reader/$id');
       }
     } catch (e) {
@@ -354,7 +328,6 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     }
     buffer.writeln('<hr>');
 
-    // Use HTML content if available, otherwise text
     if (article.htmlContent != null && article.htmlContent!.isNotEmpty) {
       buffer.writeln(article.htmlContent!);
     } else if (article.textContent != null) {
