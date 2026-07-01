@@ -20,9 +20,9 @@ class SettingsRepository {
   double get lineHeight => _prefs.getDouble(_keyLineHeight) ?? 1.6;
   String get locale => _prefs.getString(_keyLocale) ?? 'zh';
   String get backendUrl =>
-      _prefs.getString(_keyBackendUrl) ?? 'http://localhost:3000';
+      _prefs.getString(_keyBackendUrl) ?? 'https://backend-swart-three-sgl5999uxy.vercel.app';
   String get accessKey => _prefs.getString(_keyAccessKey) ?? '';
-  String get modelName => _prefs.getString(_keyModelName) ?? 'longcat';
+  String get modelName => _prefs.getString(_keyModelName) ?? 'LongCat-2.0';
 
   Future<void> setThemeMode(String value) =>
       _prefs.setString(_keyThemeMode, value);
