@@ -20,7 +20,7 @@ class ReviewResultScreen extends ConsumerWidget {
     if (session != null) {
       final docId = session['documentId'] as int;
       final vocabDao = await ref.read(vocabularyDaoProvider.future);
-      final saved = await vocabDao.getByDocument(docId);
+      final saved = await vocabDao.getVocabularyByDocument(docId);
       totalSavedVocab = saved.length;
     }
 

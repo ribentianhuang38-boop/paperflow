@@ -368,7 +368,7 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
       }
 
       // Fetch saved vocabulary words for this document
-      final savedVocab = await vocabDao.getByDocument(widget.documentId);
+      final savedVocab = await vocabDao.getVocabularyByDocument(widget.documentId);
       final vocabList = savedVocab.map((v) => v['word'] as String).toList();
 
       try {
