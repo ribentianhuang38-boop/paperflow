@@ -126,7 +126,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   Widget _buildWebView(Article article, bool isDark) {
     final htmlContent = _buildHtmlFromArticle(article, _highlights, _notes, isDark);
-    final controller = WebViewController()
+    late final WebViewController controller;
+    controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(isDark ? Colors.black : Colors.white)
       ..addJavaScriptChannel(

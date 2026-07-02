@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'package:intl/intl.dart';
 import '../../../core/design_system/color_tokens.dart';
 import '../../../core/design_system/typography.dart';
 import '../../../models/article/article.dart';
