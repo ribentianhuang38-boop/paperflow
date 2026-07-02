@@ -68,12 +68,36 @@ class ReviewResultScreen extends ConsumerWidget {
           final partial = answers.where((a) => a['aiJudgment'] == 'partial').toList();
           final wrong = answers.where((a) => a['aiJudgment'] == 'wrong').toList();
 
-          // Parse suggestions
+          // Parse suggestions and sub-scores
           List<String> suggestions = [];
+          List<String> strengths = [];
+          List<String> needReviewList = [];
+          double paragraphScore = 0;
+          double conceptScore = 0;
+          double logicScore = 0;
+          double vocabularyScore = 0;
+          String calculationProcess = '';
+
           try {
             if (session['suggestions'] != null) {
               final parsed = jsonDecode(session['suggestions'] as String);
-              if (parsed is List) {
+              if (parsed is Map) {
+                if (parsed['suggestions'] is List) {
+                  suggestions = (parsed['suggestions'] as List).map((e) => e.toString()).toList();
+                }
+                if (parsed['strengths'] is List) {
+                  strengths = (parsed['strengths'] as List).map((e) => e.toString()).toList();
+                }
+                if (parsed['need_review'] is List) {
+                  needReviewList = (parsed['need_review'] as List).map((e) => e.toString()).toList();
+                }
+                paragraphScore = (parsed['paragraph_score'] as num?)?.toDouble() ?? 0;
+                conceptScore = (parsed['concept_score'] as num?)?.toDouble() ?? 0;
+                logicScore = (parsed['logic_score'] as num?)?.toDouble() ?? 0;
+                vocabularyScore = (parsed['vocabulary_score'] as num?)?.toDouble() ?? 0;
+                calculationProcess = parsed['calculation_process']?.toString() ?? '';
+              } else if (parsed is List) {
+                // Backward compatibility
                 suggestions = parsed.map((e) => e.toString()).toList();
               }
             }
@@ -98,6 +122,43 @@ class ReviewResultScreen extends ConsumerWidget {
                 // Score card
                 _ScoreCard(score: overallScore, isDark: isDark),
                 const SizedBox(height: 24),
+
+                // Sub-scores breakdown
+                if (paragraphScore > 0 || conceptScore > 0 || logicScore > 0 || vocabularyScore > 0) ...[
+                  _SubScoresSection(
+                    paragraph: paragraphScore,
+                    concept: conceptScore,
+                    logic: logicScore,
+                    vocabulary: vocabularyScore,
+                    calculation: calculationProcess,
+                    isDark: isDark,
+                  ),
+                  const SizedBox(height: 24),
+                ],
+
+                // Strengths
+                if (strengths.isNotEmpty) ...[
+                  _BulletSection(
+                    title: 'Strengths',
+                    items: strengths,
+                    iconColor: AppColors.success,
+                    icon: Icons.check_circle_outline,
+                    isDark: isDark,
+                  ),
+                  const SizedBox(height: 24),
+                ],
+
+                // Need Review Bullet list
+                if (needReviewList.isNotEmpty) ...[
+                  _BulletSection(
+                    title: 'Focus Areas',
+                    items: needReviewList,
+                    iconColor: AppColors.warning,
+                    icon: Icons.offline_bolt_outlined,
+                    isDark: isDark,
+                  ),
+                  const SizedBox(height: 24),
+                ],
 
                 // Suggestions from AI Coach
                 if (suggestions.isNotEmpty) ...[
@@ -572,6 +633,186 @@ class _VocabularyImpactSection extends StatelessWidget {
                   )).toList(),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SubScoresSection extends StatelessWidget {
+  final double paragraph;
+  final double concept;
+  final double logic;
+  final double vocabulary;
+  final String calculation;
+  final bool isDark;
+
+  const _SubScoresSection({
+    required this.paragraph,
+    required this.concept,
+    required this.logic,
+    required this.vocabulary,
+    required this.calculation,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Score Breakdown',
+            style: AppTypography.headline.copyWith(
+              color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildRow('Paragraph (40%)', paragraph, isDark),
+          const SizedBox(height: 12),
+          _buildRow('Concept (30%)', concept, isDark),
+          const SizedBox(height: 12),
+          _buildRow('Logic (20%)', logic, isDark),
+          const SizedBox(height: 12),
+          _buildRow('Vocabulary (10%)', vocabulary, isDark),
+          if (calculation.isNotEmpty) ...[
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Divider(),
+            ),
+            Text(
+              'Calculation Process:',
+              style: AppTypography.caption1.copyWith(
+                color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              calculation,
+              style: TextStyle(
+                fontFamily: 'Courier',
+                fontSize: 12,
+                color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRow(String label, double score, bool isDark) {
+    final color = score >= 80 ? AppColors.success : score >= 60 ? AppColors.warning : AppColors.error;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.between,
+      children: [
+        Text(
+          label,
+          style: AppTypography.subheadline.copyWith(
+            color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+          ),
+        ),
+        Row(
+          children: [
+            Container(
+              width: 80,
+              height: 6,
+              decoration: BoxDecoration(
+                color: (isDark ? AppColors.darkDivider : AppColors.divider).withOpacity(0.5),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Stack(
+                children: [
+                  Container(
+                    width: 80 * (score / 100).clamp(0.0, 1.0),
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              '${score.round()}',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _BulletSection extends StatelessWidget {
+  final String title;
+  final List<String> items;
+  final Color iconColor;
+  final IconData icon;
+  final bool isDark;
+
+  const _BulletSection({
+    required this.title,
+    required this.items,
+    required this.iconColor,
+    required this.icon,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: AppTypography.headline.copyWith(
+              color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...items.map((item) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, color: iconColor, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    item,
+                    style: AppTypography.subheadline.copyWith(
+                      color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )),
         ],
       ),
     );

@@ -68,23 +68,28 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
             final buf = StringBuffer();
             for (final ch in book.Chapters ?? []) {
               if (ch.HtmlContent != null) {
-                buf.writeln(ch.HtmlContent!
+                final cleanedHtml = ch.HtmlContent!
+                    .replaceAll(RegExp(r'<style[^>]*>[\s\S]*?<\/style>'), ' ')
+                    .replaceAll(RegExp(r'</?(p|div|h[1-6]|li|br|hr)[^>]*>'), '\n\n')
                     .replaceAll(RegExp(r'<[^>]*>'), ' ')
-                    .replaceAll(RegExp(r'\s+'), ' ')
-                    .trim());
-                buf.writeln('\n');
+                    .replaceAll(RegExp(r'[ \t\r\f]+'), ' ')
+                    .trim();
+                buf.writeln(cleanedHtml);
+                buf.writeln('\n\n');
               }
             }
-            content = buf.toString();
+            content = buf.toString().replaceAll(RegExp(r'\n{3,}'), '\n\n');
           } catch (_) {}
           break;
         case 'html':
           final rawHtml = await file.readAsString();
           content = rawHtml
               .replaceAll(RegExp(r'<style[^>]*>[\s\S]*?<\/style>'), ' ')
+              .replaceAll(RegExp(r'</?(p|div|h[1-6]|li|br|hr)[^>]*>'), '\n\n')
               .replaceAll(RegExp(r'<[^>]*>'), ' ')
-              .replaceAll(RegExp(r'\s+'), ' ')
-              .trim();
+              .replaceAll(RegExp(r'[ \t\r\f]+'), ' ')
+              .trim()
+              .replaceAll(RegExp(r'\n{3,}'), '\n\n');
           break;
         case 'md':
         case 'txt':
@@ -385,7 +390,17 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
         ], maxTokens: 4096);
 
         final score = (result['overall_understanding'] as num?)?.toDouble() ?? 0.0;
-        final suggestions = jsonEncode(result['suggestions'] ?? []);
+        final suggestionsMap = {
+          'suggestions': result['suggestions'] ?? [],
+          'strengths': result['strengths'] ?? [],
+          'need_review': result['need_review'] ?? [],
+          'paragraph_score': (result['paragraph_score'] as num?)?.toDouble() ?? 0.0,
+          'concept_score': (result['concept_score'] as num?)?.toDouble() ?? 0.0,
+          'logic_score': (result['logic_score'] as num?)?.toDouble() ?? 0.0,
+          'vocabulary_score': (result['vocabulary_score'] as num?)?.toDouble() ?? 0.0,
+          'calculation_process': result['calculation_process'] ?? '',
+        };
+        final suggestions = jsonEncode(suggestionsMap);
         final vocabImpact = jsonEncode(result['vocab_impact'] ?? []);
 
         await recallDao.updateSessionScore(
@@ -450,19 +465,65 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
     }
   }
 
-  String get _systemPrompt => '''You are an academic paper reading comprehension evaluator. Evaluate strictly.
+  String get _systemPrompt => '''You are not a chat bot. You are a strict, fair, and stable PaperFlow AI Review Evaluator.
+Your goal is to evaluate if the user truly understands the paper paragraphs and key concepts.
 
-Scoring (0-100):
-- 90-100: Accurate restatement, no significant errors
-- 70-89: Main ideas understood, some details vague
-- 50-69: General direction, significant method/experiment misunderstandings
-- 30-49: Only background/motivation, core misunderstood
-- 0-29: Basically no understanding
+========================
+SCORING CRITERIA (Strictly calculate using these weights):
+Overall Understanding Score = Paragraph * 0.40 + Concept * 0.30 + Logic * 0.20 + Vocabulary * 0.10
 
-Rules: Quote user's words, compare with original, give correct/partial/wrong. Only deduct for incorrect statements. Check which vocabulary words from the saved list (if provided) directly caused misunderstandings.
+1. Paragraph Understanding (40%)
+AI must evaluate each paragraph. Final score is the average.
+Criteria:
+- 100: Accurate understanding of main idea, no significant errors.
+- 80: Understood core, missed some minor details.
+- 60: Understood parts, missed major elements.
+- 40: Vague understanding, major misunderstandings.
+- 20: Almost no understanding.
+- 0: Completely incorrect.
 
-You MUST respond with ONLY a valid JSON object, no other text. Use this exact format:
-{"overall_understanding":82,"misunderstood_paragraphs":[{"index":0,"score":60,"judgment":"partial","reason":"..."}],"vocab_impact":["word1","word2"],"suggestions":["..."]}''';
+2. Key Concept Understanding (30%)
+AI must identify 5-15 core concepts from the text (e.g. Transformer, Attention, Ablation).
+Judge if user understood them in their answers.
+- 100: Accurately understands role/mechanism in paper.
+- 50: Partially understands.
+- 0: Incorrect or not mentioned.
+
+3. Logic & Structure Understanding (20%)
+Judge if user understands the flow (Research Question -> Method -> Experiment -> Result -> Conclusion).
+- 100: Complete correct flow.
+- 80: Core flow correct.
+- 60: Partially correct.
+- 40: Logic confused.
+- 0: Fails to explain structure.
+
+4. Vocabulary Understanding (10%)
+Identify key academic/technical terms that impact paper understanding (e.g. encoder, backbone, mitigate, gradient). Ordinary words do NOT count.
+Score 0-100 based on correct usage or context-based understanding of these key terms.
+
+========================
+EVALUATION PRINCIPLES:
+- DO NOT penalize for writing style, grammar, typos, language preference (Chinese/English/Mixed), or brevity.
+- If a short 1-sentence answer is accurate, award 100. Length does NOT equal understanding.
+- Do NOT match keywords verbatim. Reward conceptual understanding.
+- Scores must be highly stable and repeatable.
+
+You MUST respond with ONLY a valid JSON object. Do not include any other text. Follow this exact format:
+{
+  "overall_understanding": 85,
+  "paragraph_score": 87,
+  "concept_score": 81,
+  "logic_score": 90,
+  "vocabulary_score": 75,
+  "calculation_process": "Paragraph (87 * 0.40) + Concept (81 * 0.30) + Logic (90 * 0.20) + Vocabulary (75 * 0.10) = 85.1 -> 85",
+  "strengths": ["...", "...", "..."],
+  "need_review": ["...", "...", "..."],
+  "misunderstood_paragraphs": [
+    {"index": 0, "score": 60, "judgment": "partial", "reason": "..."}
+  ],
+  "vocab_impact": ["word1", "word2"],
+  "suggestions": ["...", "...", "..."]
+}''';
 
   String _buildUserPrompt(List<String> vocabList) {
     final buf = StringBuffer('Evaluate recall responses:\n\n');

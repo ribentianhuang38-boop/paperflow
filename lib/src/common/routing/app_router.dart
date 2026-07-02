@@ -9,6 +9,7 @@ import '../../features/dictionary/presentation/vocabulary_list_screen.dart';
 import '../../features/active_recall/presentation/recall_screen.dart';
 import '../../features/active_recall/presentation/review_result_screen.dart';
 import '../../features/reading_mastery/presentation/mastery_detail_screen.dart';
+import '../../features/reading_mastery/presentation/mastery_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/explore/presentation/explore_screen.dart';
 
@@ -21,6 +22,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(path: '/', name: 'library', builder: (_, __) => const LibraryScreen()),
           GoRoute(path: '/explore', name: 'explore', builder: (_, __) => const ExploreScreen()),
+          GoRoute(path: '/mastery', name: 'mastery_global', builder: (_, __) => const MasteryScreen()),
         ],
       ),
       GoRoute(
@@ -95,6 +97,16 @@ class _MainShell extends StatelessWidget {
                   isActive: location == '/explore',
                   isDark: isDark,
                   onTap: () => context.go('/explore'),
+                ),
+              ),
+              Expanded(
+                child: _NavItem(
+                  icon: Icons.trending_up_outlined,
+                  activeIcon: Icons.trending_up,
+                  label: 'Mastery',
+                  isActive: location == '/mastery',
+                  isDark: isDark,
+                  onTap: () => context.go('/mastery'),
                 ),
               ),
             ],

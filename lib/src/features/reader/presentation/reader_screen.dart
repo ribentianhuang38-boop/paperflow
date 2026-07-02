@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:epubx/epubx.dart';
+import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:dio/dio.dart';
 
 import 'package:paperflow/src/common/providers.dart';
 import '../../../common/theme/colors.dart';
@@ -21,26 +23,6 @@ class ReaderScreen extends ConsumerStatefulWidget {
 }
 
 class _ReaderScreenState extends ConsumerState<ReaderScreen> {
-  late WebViewController _webViewController;
-  bool _isLoading = true;
-  bool _useReadest = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _initWebView();
-  }
-
-  void _initWebView() {
-    _webViewController = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageFinished: (_) => setState(() => _isLoading = false),
-        ),
-      );
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -58,13 +40,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           ),
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: Icon(_useReadest ? Icons.chrome_reader_mode : Icons.menu_book),
-            tooltip: _useReadest ? 'Native Reader' : 'Readest',
-            onPressed: () => setState(() => _useReadest = !_useReadest),
-          ),
-        ],
       ),
       body: FutureBuilder<Document?>(
         future: _loadDoc(),
@@ -73,7 +48,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           final doc = snap.data!;
           return Stack(
             children: [
-              _useReadest ? _buildReadestView(doc, isDark) : _buildNativeReader(doc, isDark),
+              _buildNativeReader(doc, isDark),
               Positioned(
                 left: 0, right: 0, bottom: 0,
                 child: _buildBottomBar(context, doc, isDark),
@@ -90,20 +65,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     return repo.getDocumentById(widget.documentId);
   }
 
-  // Readest WebView - loads web.readest.com
-  Widget _buildReadestView(Document doc, bool isDark) {
-    // For local files, we'd need to serve them via a local server
-    // For now, use Readest's web app for supported formats
-    final readestUrl = 'https://web.readest.com';
 
-    return Stack(
-      children: [
-        WebViewWidget(controller: _webViewController),
-        if (_isLoading)
-          const Center(child: CircularProgressIndicator()),
-      ],
-    );
-  }
 
   // Native reader for text-based formats
   Widget _buildNativeReader(Document doc, bool isDark) {
@@ -127,11 +89,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     if (!File(doc.filePath).existsSync()) {
       return const Center(child: Text('File not found'));
     }
-    // Use a WebView to display PDF with pdf.js (like Readest does)
-    return WebViewWidget(
-      controller: WebViewController()
-        ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        ..loadFile(doc.filePath),
+    return PDFView(
+      filePath: doc.filePath,
+      enableSwipe: true,
+      swipeHorizontal: false,
+      autoSpacing: true,
+      pageFling: true,
+      onError: (error) {
+        debugPrint('PDFView error: $error');
+      },
     );
   }
 
@@ -254,9 +220,27 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         controller
           ..setJavaScriptMode(JavaScriptMode.unrestricted)
           ..setBackgroundColor(isDark ? Colors.black : Colors.white)
+          ..addJavaScriptChannel(
+            'DictionaryChannel',
+            onMessageReceived: (JavaScriptMessage message) {
+              final word = message.message.trim();
+              if (word.isNotEmpty) {
+                _showWordLookupDialog(context, word, doc.id);
+              }
+            },
+          )
           ..setNavigationDelegate(
             NavigationDelegate(
               onPageFinished: (_) {
+                controller.runJavaScript('''
+                  document.addEventListener('dblclick', function(e) {
+                    var sel = window.getSelection().toString().trim();
+                    if (sel && /^[a-zA-Z\\'-]+\$/.test(sel)) {
+                      DictionaryChannel.postMessage(sel);
+                    }
+                  });
+                ''');
+
                 if (widget.initialParagraphIdx != null) {
                   final idx = widget.initialParagraphIdx!;
                   controller.runJavaScript('''
@@ -280,6 +264,244 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     );
   }
 
+  Future<Map<String, dynamic>?> _lookupDictionary(String word) async {
+    try {
+      final dio = Dio();
+      final response = await dio.get('https://api.dictionaryapi.dev/api/v2/entries/en/$word')
+          .timeout(const Duration(seconds: 3));
+      if (response.statusCode == 200 && response.data is List && (response.data as List).isNotEmpty) {
+        final entry = (response.data as List).first;
+        final wordText = entry['word'] ?? word;
+        final phonetic = entry['phonetic'] ?? '';
+        final meanings = entry['meanings'] as List?;
+        
+        String definition = '';
+        String pos = '';
+        
+        if (meanings != null && meanings.isNotEmpty) {
+          final firstMeaning = meanings.first;
+          pos = firstMeaning['partOfSpeech'] ?? '';
+          final definitions = firstMeaning['definitions'] as List?;
+          if (definitions != null && definitions.isNotEmpty) {
+            definition = definitions.first['definition'] ?? '';
+          }
+        }
+        
+        return {
+          'word': wordText,
+          'phonetic': phonetic,
+          'pos': pos,
+          'definition': definition,
+        };
+      }
+    } catch (e) {
+      debugPrint('Dictionary API error: $e');
+    }
+    return {
+      'word': word,
+      'phonetic': '',
+      'pos': 'word',
+      'definition': 'Definition not found online. Tap Bookmark to save to your local vocabulary.',
+    };
+  }
+
+  void _showWordLookupDialog(BuildContext context, String word, int documentId) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cleanWord = word.toLowerCase().trim();
+    
+    final vocabDao = await ref.read(vocabularyDaoProvider.future);
+    final existingVocab = await vocabDao.getVocabularyByWord(cleanWord);
+    
+    if (existingVocab != null) {
+      await vocabDao.updateQueryInfo(existingVocab['id']);
+    }
+
+    if (!context.mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? AppColors.darkSurface : AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return FutureBuilder<Map<String, dynamic>?>(
+          future: _lookupDictionary(cleanWord),
+          builder: (context, snap) {
+            final data = snap.data ?? {
+              'word': cleanWord,
+              'phonetic': '',
+              'pos': 'word',
+              'definition': snap.connectionState == ConnectionState.waiting 
+                  ? 'Searching...' 
+                  : 'Definition not found online. Tap Bookmark to save to your local vocabulary.',
+            };
+
+            final displayWord = data['word'] as String;
+            final phonetic = data['phonetic'] as String;
+            final pos = data['pos'] as String;
+            final definition = data['definition'] as String;
+
+            return StatefulBuilder(
+              builder: (context, setModalState) {
+                return FutureBuilder<Map<String, dynamic>?>(
+                  future: vocabDao.getVocabularyByWord(cleanWord),
+                  builder: (context, vocabSnap) {
+                    final isSaved = vocabSnap.data != null;
+                    final queryCount = vocabSnap.data?['queryCount'] ?? (existingVocab?['queryCount'] ?? 1);
+
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Center(
+                            child: Container(
+                              width: 36,
+                              height: 5,
+                              decoration: BoxDecoration(
+                                color: isDark ? AppColors.darkDivider : AppColors.divider,
+                                borderRadius: BorderRadius.circular(2.5),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.between,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      displayWord,
+                                      style: AppTypography.largeTitle.copyWith(
+                                        color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                                        fontSize: 28,
+                                      ),
+                                    ),
+                                    if (phonetic.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        phonetic,
+                                        style: AppTypography.caption1.copyWith(
+                                          color: AppColors.accent,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(
+                                  isSaved ? Icons.star_rounded : Icons.star_outline_rounded,
+                                  color: isSaved ? Colors.amber : (isDark ? AppColors.darkTextTertiary : AppColors.textTertiary),
+                                  size: 28,
+                                ),
+                                onPressed: () async {
+                                  if (isSaved) {
+                                    final id = vocabSnap.data!['id'] as int;
+                                    await vocabDao.deleteVocabulary(id);
+                                  } else {
+                                    await vocabDao.addWord(
+                                      word: displayWord,
+                                      definition: definition,
+                                      pos: pos,
+                                      documentId: documentId,
+                                    );
+                                  }
+                                  setModalState(() {});
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          if (pos.isNotEmpty && pos != 'word') ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppColors.accent.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                pos.toUpperCase(),
+                                style: AppTypography.caption1.copyWith(
+                                  color: AppColors.accent,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                          Text(
+                            definition,
+                            style: AppTypography.body.copyWith(
+                              color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                              fontSize: 16,
+                              height: 1.5,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.remove_red_eye_outlined,
+                                size: 16,
+                                color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Looked up $queryCount time(s)',
+                                style: AppTypography.caption1.copyWith(
+                                  color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+                                ),
+                              ),
+                              const Spacer(),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: queryCount > 2 
+                                      ? AppColors.error.withOpacity(0.1) 
+                                      : queryCount > 1 
+                                          ? AppColors.warning.withOpacity(0.1) 
+                                          : AppColors.success.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  queryCount > 2 
+                                      ? 'Difficult Word' 
+                                      : queryCount > 1 
+                                          ? 'Needs Review' 
+                                          : 'New Word',
+                                  style: AppTypography.caption1.copyWith(
+                                    color: queryCount > 2 
+                                        ? AppColors.error 
+                                        : queryCount > 1 
+                                            ? AppColors.warning 
+                                            : AppColors.success,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<String> _prepareHtmlContent(Document doc) async {
     final file = File(doc.filePath);
     if (!await file.exists()) return '<html><body>File not found</body></html>';
@@ -288,6 +510,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     
     final stylesheet = '''
       <style>
+        * {
+          max-width: 100%;
+          box-sizing: border-box;
+        }
         body {
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Source Serif 4", Georgia, serif;
           font-size: 19px;
@@ -296,6 +522,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           background-color: #fafafb;
           margin: 0;
           padding: 24px 24px 120px 24px;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
         }
         @media (prefers-color-scheme: dark) {
           body {
@@ -306,6 +534,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         article {
           max-width: 640px;
           margin: 0 auto;
+        }
+        h1, h2, h3, h4, h5, h6, p, ul, ol, li, blockquote, pre, code {
+          word-wrap: break-word;
+          overflow-wrap: break-word;
         }
         h1 {
           font-size: 28px;
@@ -390,6 +622,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           buf.writeln('<h2>${p.substring(3)}</h2>');
         } else if (p.startsWith('- ')) {
           buf.writeln('<ul><li>${p.substring(2)}</li></ul>');
+        } else if (p.startsWith('---') || p.startsWith('***') || p.startsWith('___') || p.startsWith('===')) {
+          buf.writeln('<hr>');
         } else {
           buf.writeln('<p>$p</p>');
         }
@@ -403,7 +637,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   Future<String> _loadEpubHtml(String path) async {
     try {
       final bytes = await File(path).readAsBytes();
-      final book = await EpubReader.readBook(bytes);
+      final book = await EpubReader.readBook(bytes).timeout(const Duration(seconds: 5));
       final buf = StringBuffer();
       for (final ch in book.Chapters ?? []) {
         if (ch.Title != null) buf.writeln('<h2>${ch.Title}</h2>');
@@ -413,6 +647,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       }
       return buf.toString();
     } catch (e) {
+      debugPrint('Epub loading error: $e');
       return '<html><body>Error loading EPUB: $e</body></html>';
     }
   }
