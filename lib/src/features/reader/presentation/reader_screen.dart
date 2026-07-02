@@ -111,7 +111,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       case 'pdf':
         return _buildPdfView(doc, isDark);
       case 'epub':
-        return _buildEpubView(doc, isDark);
       case 'md': case 'html': case 'txt':
         return _buildHtmlTextView(doc, isDark);
       default:
@@ -241,15 +240,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     );
   }
 
-  Widget _buildEpubView(Document doc, bool isDark) {
-    return FutureBuilder<String>(
-      future: _loadEpubText(doc.filePath),
-      builder: (ctx, snap) {
-        if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-        return _buildParagraphReader(snap.data!, isDark);
-      },
-    );
-  }
+
 
   Widget _buildHtmlTextView(Document doc, bool isDark) {
     return FutureBuilder<String>(
@@ -375,6 +366,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         return content.replaceFirst('</head>', '$stylesheet</head>');
       }
       return '<html><head>$stylesheet</head><body><article>$content</article></body></html>';
+    } else if (doc.fileType == 'epub') {
+      final epubHtml = await _loadEpubHtml(doc.filePath);
+      return '<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">$stylesheet</head><body><article>$epubHtml</article></body></html>';
     } else {
       final paragraphs = content.split(RegExp(r'\n{2,}'))
           .map((p) => p.trim())
@@ -405,23 +399,21 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     }
   }
 
-  Future<String> _loadEpubText(String path) async {
+  Future<String> _loadEpubHtml(String path) async {
     try {
       final bytes = await File(path).readAsBytes();
       final book = await EpubReader.readBook(bytes);
       final buf = StringBuffer();
       for (final ch in book.Chapters ?? []) {
-        if (ch.Title != null) buf.writeln('\n${ch.Title}\n');
+        if (ch.Title != null) buf.writeln('<h2>${ch.Title}</h2>');
         if (ch.HtmlContent != null) {
-          buf.writeln(ch.HtmlContent!
-              .replaceAll(RegExp(r'<[^>]*>'), ' ')
-              .replaceAll(RegExp(r'\s+'), ' ')
-              .trim());
-          buf.writeln();
+          buf.writeln(ch.HtmlContent!);
         }
       }
-      return buf.toString().isEmpty ? 'Could not parse EPUB' : buf.toString();
-    } catch (e) { return 'Error: $e'; }
+      return buf.toString();
+    } catch (e) {
+      return '<html><body>Error loading EPUB: $e</body></html>';
+    }
   }
 
   Widget _buildBottomBar(BuildContext context, Document doc, bool isDark) {
