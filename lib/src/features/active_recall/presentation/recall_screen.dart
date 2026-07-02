@@ -26,6 +26,7 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
 
   List<String> _paragraphs = [];
   List<String> _answers = [];
+  int? _sessionId;
   int _currentIndex = 0;
   bool _isSubmitting = false;
   bool _isListening = false;
@@ -44,6 +45,20 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
       c.dispose();
     }
     super.dispose();
+  }
+
+  void _saveDraftAnswer(int index, String value) async {
+    if (_sessionId == null) return;
+    try {
+      final recallDao = await ref.read(recallSessionDaoProvider.future);
+      await recallDao.updateUserAnswer(
+        sessionId: _sessionId!,
+        paragraphIdx: index,
+        userAnswer: value,
+      );
+    } catch (e) {
+      debugPrint('Failed to auto-save draft answer: $e');
+    }
   }
 
   Future<void> _loadDocument() async {
@@ -126,18 +141,54 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
       debugPrint('Error parsing document: $e');
     }
 
+    int? sessionId;
+    List<String> answers = [];
+
+    if (paragraphs.isNotEmpty) {
+      try {
+        final recallDao = await ref.read(recallSessionDaoProvider.future);
+        final draft = await recallDao.getLatestDraftSession(widget.documentId);
+        if (draft != null) {
+          sessionId = draft['id'] as int;
+          final savedAnswers = await recallDao.getAnswersBySession(sessionId);
+          answers = List.filled(paragraphs.length, '');
+          for (final sa in savedAnswers) {
+            final idx = sa['paragraphIdx'] as int;
+            if (idx >= 0 && idx < paragraphs.length) {
+              answers[idx] = sa['userAnswer'] as String? ?? '';
+            }
+          }
+        } else {
+          sessionId = await recallDao.createSession(widget.documentId);
+          answers = List.filled(paragraphs.length, '');
+          for (int i = 0; i < paragraphs.length; i++) {
+            await recallDao.insertAnswer(
+              sessionId: sessionId,
+              paragraphIdx: i,
+              paragraphText: paragraphs[i],
+              userAnswer: '',
+            );
+          }
+        }
+      } catch (e) {
+        debugPrint('Failed to initialize recall session in DB: $e');
+      }
+    }
+
     if (mounted && paragraphs.isNotEmpty) {
       setState(() {
         _paragraphs = paragraphs;
-        _answers = List.filled(paragraphs.length, '');
+        _answers = answers;
+        _sessionId = sessionId;
         _answerControllers.clear();
-        _answerControllers.addAll(List.generate(paragraphs.length, (i) => TextEditingController()));
+        _answerControllers.addAll(List.generate(paragraphs.length, (i) => TextEditingController(text: answers[i])));
       });
     } else if (mounted) {
       // Fallback: show a message
       setState(() {
         _paragraphs = ['Could not extract text from this document. Try with a text-based document (EPUB, HTML, TXT, MD).'];
         _answers = [''];
+        _sessionId = null;
         _answerControllers.clear();
         _answerControllers.add(TextEditingController());
       });
@@ -241,7 +292,10 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
                         hintText: 'Write your recall here...',
                         fillColor: isDark ? AppColors.darkSurfaceSecondary : AppColors.surfaceSecondary,
                       ),
-                      onChanged: (v) => _answers[i] = v,
+                      onChanged: (v) {
+                        _answers[i] = v;
+                        _saveDraftAnswer(i, v);
+                      },
                     ),
                     const SizedBox(height: 12),
                     GestureDetector(
@@ -342,6 +396,7 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
           _answerControllers[_currentIndex].text = r.recognizedWords;
           _answers[_currentIndex] = r.recognizedWords;
         });
+        _saveDraftAnswer(_currentIndex, r.recognizedWords);
       });
     }
   }
@@ -380,13 +435,7 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
       final vocabDao = await ref.read(vocabularyDaoProvider.future);
       final aiClient = ref.read(aiClientProvider);
 
-      final sessionId = await recallDao.createSession(widget.documentId);
-      for (int i = 0; i < _paragraphs.length; i++) {
-        await recallDao.insertAnswer(
-          sessionId: sessionId, paragraphIdx: i,
-          paragraphText: _paragraphs[i], userAnswer: _answers[i],
-        );
-      }
+      final sessionId = _sessionId!;
 
       // Fetch saved vocabulary words for this document
       final savedVocab = await vocabDao.getVocabularyByDocument(widget.documentId);

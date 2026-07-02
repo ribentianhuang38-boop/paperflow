@@ -80,4 +80,31 @@ class RecallSessionDao {
     if (maps.isEmpty) return null;
     return maps.first;
   }
+
+  Future<Map<String, dynamic>?> getLatestDraftSession(int documentId) async {
+    final db = await _db.database;
+    final maps = await db.query(
+      'recall_sessions',
+      where: 'documentId = ? AND overallScore IS NULL',
+      whereArgs: [documentId],
+      orderBy: 'createdAt DESC',
+      limit: 1,
+    );
+    if (maps.isEmpty) return null;
+    return maps.first;
+  }
+
+  Future<void> updateUserAnswer({
+    required int sessionId,
+    required int paragraphIdx,
+    required String userAnswer,
+  }) async {
+    final db = await _db.database;
+    await db.update(
+      'recall_answers',
+      {'userAnswer': userAnswer},
+      where: 'sessionId = ? AND paragraphIdx = ?',
+      whereArgs: [sessionId, paragraphIdx],
+    );
+  }
 }
