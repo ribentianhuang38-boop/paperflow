@@ -21,10 +21,23 @@ class RecallSessionDao {
     });
   }
 
-  Future<void> updateSessionScore(int sessionId, double score) async {
+  Future<void> updateSessionScore({
+    required int sessionId,
+    required double score,
+    String? suggestions,
+    String? vocabImpact,
+  }) async {
     final db = await _db.database;
-    await db.update('recall_sessions', {'overallScore': score},
-        where: 'id = ?', whereArgs: [sessionId]);
+    await db.update(
+      'recall_sessions',
+      {
+        'overallScore': score,
+        if (suggestions != null) 'suggestions': suggestions,
+        if (vocabImpact != null) 'vocabImpact': vocabImpact,
+      },
+      where: 'id = ?',
+      whereArgs: [sessionId],
+    );
   }
 
   Future<int> insertAnswer({

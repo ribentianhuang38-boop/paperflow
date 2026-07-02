@@ -23,8 +23,18 @@ class AppDatabase {
     final path = join(dir.path, 'paperflow.sqlite');
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          try {
+            await db.execute('ALTER TABLE recall_sessions ADD COLUMN suggestions TEXT');
+            await db.execute('ALTER TABLE recall_sessions ADD COLUMN vocabImpact TEXT');
+          } catch (e) {
+            // Column might already exist
+          }
+        }
+      },
     );
   }
 
@@ -103,6 +113,8 @@ class AppDatabase {
         documentId INTEGER NOT NULL,
         createdAt INTEGER NOT NULL,
         overallScore REAL,
+        suggestions TEXT,
+        vocabImpact TEXT,
         FOREIGN KEY (documentId) REFERENCES documents(id) ON DELETE CASCADE
       )
     ''');

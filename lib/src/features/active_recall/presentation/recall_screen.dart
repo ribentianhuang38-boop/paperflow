@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -355,6 +356,7 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
     try {
       final recallDao = await ref.read(recallSessionDaoProvider.future);
       final masteryDao = await ref.read(masteryDaoProvider.future);
+      final vocabDao = await ref.read(vocabularyDaoProvider.future);
       final aiClient = ref.read(aiClientProvider);
 
       final sessionId = await recallDao.createSession(widget.documentId);
@@ -365,36 +367,66 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
         );
       }
 
+      // Fetch saved vocabulary words for this document
+      final savedVocab = await vocabDao.getByDocument(widget.documentId);
+      final vocabList = savedVocab.map((v) => v['word'] as String).toList();
+
       try {
         final result = await aiClient.chatJson([
           {'role': 'system', 'content': _systemPrompt},
-          {'role': 'user', 'content': _userPrompt},
+          {'role': 'user', 'content': _buildUserPrompt(vocabList)},
         ], maxTokens: 4096);
 
         final score = (result['overall_understanding'] as num?)?.toDouble() ?? 0.0;
-        await recallDao.updateSessionScore(sessionId, score);
+        final suggestions = jsonEncode(result['suggestions'] ?? []);
+        final vocabImpact = jsonEncode(result['vocab_impact'] ?? []);
+
+        await recallDao.updateSessionScore(
+          sessionId: sessionId,
+          score: score,
+          suggestions: suggestions,
+          vocabImpact: vocabImpact,
+        );
         await masteryDao.insertScore(widget.documentId, score);
 
         // Update individual answers with AI feedback
         final misunderstood = result['misunderstood_paragraphs'] as List<dynamic>? ?? [];
-        for (final item in misunderstood) {
-          final idx = item['index'] as int? ?? -1;
-          if (idx >= 0 && idx < _paragraphs.length) {
-            final answers = await recallDao.getAnswersBySession(sessionId);
-            final answer = answers.firstWhere((a) => a['paragraphIdx'] == idx, orElse: () => {});
-            if (answer.isNotEmpty) {
-              await recallDao.updateAnswer(
-                answer['id'] as int,
-                (item['score'] as num?)?.toDouble() ?? 0.0,
-                item['judgment'] as String? ?? 'partial',
-                item['reason'] as String? ?? '',
-              );
-            }
+        final answers = await recallDao.getAnswersBySession(sessionId);
+        for (final answer in answers) {
+          final idx = answer['paragraphIdx'] as int;
+          final misItem = misunderstood.firstWhere(
+            (m) => (m['index'] as int? ?? -1) == idx,
+            orElse: () => null,
+          );
+          if (misItem != null) {
+            await recallDao.updateAnswer(
+              answer['id'] as int,
+              (misItem['score'] as num?)?.toDouble() ?? 0.0,
+              misItem['judgment'] as String? ?? 'partial',
+              misItem['reason'] as String? ?? '',
+            );
+          } else {
+            // Default to correct if not in misunderstood list
+            await recallDao.updateAnswer(
+              answer['id'] as int,
+              100.0,
+              'correct',
+              'Understanding verified. Good comprehension.',
+            );
           }
         }
       } catch (e) {
         debugPrint('AI analysis failed: $e');
-        // Continue even if AI fails - user can still see their answers
+        // Continue even if AI fails - set defaults so user can still see their answers
+        final answers = await recallDao.getAnswersBySession(sessionId);
+        for (final answer in answers) {
+          await recallDao.updateAnswer(
+            answer['id'] as int,
+            100.0,
+            'correct',
+            'Recall completed (AI analysis offline).',
+          );
+        }
       }
 
       if (mounted) {
@@ -420,17 +452,21 @@ Scoring (0-100):
 - 30-49: Only background/motivation, core misunderstood
 - 0-29: Basically no understanding
 
-Rules: Quote user's words, compare with original, give correct/partial/wrong. Only deduct for incorrect statements.
+Rules: Quote user's words, compare with original, give correct/partial/wrong. Only deduct for incorrect statements. Check which vocabulary words from the saved list (if provided) directly caused misunderstandings.
 
 You MUST respond with ONLY a valid JSON object, no other text. Use this exact format:
-{"overall_understanding":82,"misunderstood_paragraphs":[{"index":0,"score":60,"judgment":"partial","reason":"..."}],"suggestions":["..."]}''';
+{"overall_understanding":82,"misunderstood_paragraphs":[{"index":0,"score":60,"judgment":"partial","reason":"..."}],"vocab_impact":["word1","word2"],"suggestions":["..."]}''';
 
-  String get _userPrompt {
+  String _buildUserPrompt(List<String> vocabList) {
     final buf = StringBuffer('Evaluate recall responses:\n\n');
     for (int i = 0; i < _paragraphs.length; i++) {
       buf.writeln('[Paragraph ${i+1}]');
       buf.writeln('Original: ${_paragraphs[i]}');
       buf.writeln('User recall: ${_answers[i]}\n');
+    }
+    if (vocabList.isNotEmpty) {
+      buf.writeln('Saved Vocabulary list during reading this paper: ${vocabList.join(", ")}\n');
+      buf.writeln('Identify which of these saved words directly impacted understanding of misunderstood paragraphs.');
     }
     return buf.toString();
   }

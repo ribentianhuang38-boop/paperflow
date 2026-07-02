@@ -25,7 +25,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/reader/:documentId', name: 'reader',
-        builder: (_, state) => ReaderScreen(documentId: int.parse(state.pathParameters['documentId']!)),
+        builder: (_, state) {
+          final documentId = int.parse(state.pathParameters['documentId']!);
+          final paragraphStr = state.uri.queryParameters['paragraph'];
+          final paragraphIdx = paragraphStr != null ? int.tryParse(paragraphStr) : null;
+          return ReaderScreen(documentId: documentId, initialParagraphIdx: paragraphIdx);
+        },
       ),
       GoRoute(path: '/vocabulary', name: 'vocabulary', builder: (_, __) => const VocabularyListScreen()),
       GoRoute(

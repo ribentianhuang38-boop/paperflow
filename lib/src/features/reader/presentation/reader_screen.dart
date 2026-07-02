@@ -13,7 +13,8 @@ import '../../library/presentation/library_screen.dart';
 
 class ReaderScreen extends ConsumerStatefulWidget {
   final int documentId;
-  const ReaderScreen({super.key, required this.documentId});
+  final int? initialParagraphIdx;
+  const ReaderScreen({super.key, required this.documentId, this.initialParagraphIdx});
 
   @override
   ConsumerState<ReaderScreen> createState() => _ReaderScreenState();
@@ -135,28 +136,117 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     );
   }
 
+  final List<GlobalKey> _paragraphKeys = [];
+
+  Widget _buildParagraphReader(String content, bool isDark) {
+    final rawParagraphs = content.split(RegExp(r'\n{2,}'))
+        .map((p) => p.trim())
+        .where((p) => p.length > 50)
+        .toList();
+
+    if (rawParagraphs.isEmpty) {
+      final lines = content.split('\n')
+          .map((l) => l.trim())
+          .where((l) => l.length > 50)
+          .toList();
+      rawParagraphs.addAll(lines);
+    }
+
+    if (rawParagraphs.isEmpty && content.trim().length > 20) {
+      rawParagraphs.add(content.trim().substring(0, content.trim().length.clamp(0, 2000)));
+    }
+
+    if (_paragraphKeys.length != rawParagraphs.length) {
+      _paragraphKeys.clear();
+      for (int i = 0; i < rawParagraphs.length; i++) {
+        _paragraphKeys.add(GlobalKey());
+      }
+    }
+
+    if (widget.initialParagraphIdx != null && 
+        widget.initialParagraphIdx! >= 0 && 
+        widget.initialParagraphIdx! < _paragraphKeys.length) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final key = _paragraphKeys[widget.initialParagraphIdx!];
+        if (key.currentContext != null) {
+          Scrollable.ensureVisible(
+            key.currentContext!,
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeInOut,
+          );
+        }
+      });
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 640),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: List.generate(rawParagraphs.length, (idx) {
+              final isHighlighted = widget.initialParagraphIdx == idx;
+              return Container(
+                key: _paragraphKeys[idx],
+                margin: const EdgeInsets.only(bottom: 24),
+                padding: isHighlighted ? const EdgeInsets.all(16) : EdgeInsets.zero,
+                decoration: isHighlighted
+                    ? BoxDecoration(
+                        color: isDark 
+                            ? AppColors.darkSurfaceSecondary.withOpacity(0.4) 
+                            : AppColors.surfaceSecondary.withOpacity(0.4),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.accent, width: 1.5),
+                      )
+                    : null,
+                child: SelectionArea(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (isHighlighted) ...[
+                        Row(
+                          children: [
+                            const Icon(Icons.info_outline, size: 14, color: AppColors.accent),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Review Target (Paragraph ${idx + 1})',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 12,
+                                color: AppColors.accent,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      Text(
+                        rawParagraphs[idx],
+                        style: AppTypography.body.copyWith(
+                          color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                          fontSize: 18,
+                          height: 1.75,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildEpubView(Document doc, bool isDark) {
-    // For EPUB, we'll use a WebView with Readest's rendering
-    // For now, show a placeholder with extracted text
     return FutureBuilder<String>(
       future: _loadEpubText(doc.filePath),
       builder: (ctx, snap) {
         if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-        return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 640),
-              child: SelectableText(
-                snap.data!,
-                style: AppTypography.body.copyWith(
-                  color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
-                  fontSize: 18, height: 1.7,
-                ),
-              ),
-            ),
-          ),
-        );
+        return _buildParagraphReader(snap.data!, isDark);
       },
     );
   }
@@ -166,21 +256,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       future: File(doc.filePath).readAsString(),
       builder: (ctx, snap) {
         if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-        return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 640),
-              child: SelectableText(
-                snap.data!,
-                style: AppTypography.body.copyWith(
-                  color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
-                  fontSize: 18, height: 1.7,
-                ),
-              ),
-            ),
-          ),
-        );
+        return _buildParagraphReader(snap.data!, isDark);
       },
     );
   }
