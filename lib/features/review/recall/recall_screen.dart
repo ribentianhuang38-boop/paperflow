@@ -60,7 +60,7 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
         }
       }
 
-      final draftSession = await reviewRepo.getDraftSession(widget.documentId);
+      final draftSession = await reviewRepo.getLatestDraftSession(widget.documentId);
       List<String> draftAnswers = List.filled(list.length, '');
       int resumeIndex = 0;
 
@@ -82,7 +82,12 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
         final sid = await reviewRepo.createSession(widget.documentId);
         _sessionId = sid;
         for (int idx = 0; idx < list.length; idx++) {
-          await reviewRepo.insertAnswer(sid, idx, list[idx], '');
+          await reviewRepo.insertAnswer(ReviewAnswer(
+            sessionId: sid,
+            paragraphIdx: idx,
+            paragraphText: list[idx],
+            userAnswer: '',
+          ));
         }
       }
 
@@ -107,21 +112,23 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
   Future<void> _saveDraftAnswer(int paragraphIdx, String text) async {
     if (_sessionId == null) return;
     final reviewRepo = ref.read(reviewRepositoryProvider);
-    final answers = await reviewRepo.getAnswersBySession(_sessionId!);
-    final matching = answers.firstWhere((a) => a.paragraphIdx == paragraphIdx);
-    await reviewRepo.updateAnswerText(matching.id!, text);
+    await reviewRepo.updateUserAnswer(
+      sessionId: _sessionId!,
+      paragraphIdx: paragraphIdx,
+      userAnswer: text,
+    );
   }
 
   Future<void> _toggleVoice() async {
     final speech = ref.read(speechServiceProvider);
     if (_isListening) {
-      await speech.stopListening();
+      await speech.stop();
       setState(() => _isListening = false);
     } else {
       final ok = await speech.initialize();
       if (ok) {
         setState(() => _isListening = true);
-        await speech.startListening(
+        await speech.listen(
           onResult: (text) {
             setState(() {
               _answerControllers[_currentIndex].text = text;
@@ -129,7 +136,6 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
             });
             _saveDraftAnswer(_currentIndex, text);
           },
-          onError: (_) => setState(() => _isListening = false),
         );
       } else {
         if (mounted) {
@@ -168,31 +174,23 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
     try {
       final reviewRepo = ref.read(reviewRepositoryProvider);
       final aiRepository = ref.read(aiRepositoryProvider);
-      final repo = ref.read(articleRepositoryProvider);
 
-      final article = await repo.getArticleById(widget.documentId);
       final sessionId = _sessionId!;
 
       final answers = await reviewRepo.getAnswersBySession(sessionId);
-      final List<Map<String, dynamic>> promptList = [];
-      for (final a in answers) {
-        promptList.add({
-          'index': a.paragraphIdx,
-          'paragraph': a.paragraphText,
-          'recall': a.userAnswer,
-        });
-      }
 
       try {
-        final aiResult = await aiRepository.evaluateComprehension(
-          articleTitle: article?.title ?? 'Research Article',
-          paragraphs: promptList,
+        final vocabRepo = ref.read(vocabularyRepositoryProvider);
+        final savedVocab = await vocabRepo.getVocabularyByDocument(widget.documentId);
+        final savedWords = savedVocab.map((v) => v.word).toList();
+
+        final result = await aiRepository.evaluateRecall(
+          paragraphs: answers.map((a) => a.paragraphText).toList(),
+          answers: answers.map((a) => a.userAnswer).toList(),
+          savedVocabulary: savedWords,
         );
 
-        final result = jsonDecode(aiResult);
         final double overall = (result['overall_score'] as num?)?.toDouble() ?? 0.0;
-
-        await reviewRepo.completeSession(sessionId, overall);
 
         final String suggestions = jsonEncode({
           'suggestions': result['suggestions'] ?? [],
@@ -204,10 +202,15 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
           'vocabulary_score': result['vocabulary_score'] ?? 0,
           'calculation_process': result['calculation_process'] ?? '',
         });
-        await reviewRepo.updateSessionSuggestions(sessionId, suggestions);
 
         final String vocabImpact = jsonEncode(result['vocab_impact'] ?? []);
-        await reviewRepo.updateSessionVocabImpact(sessionId, vocabImpact);
+
+        await reviewRepo.updateSessionScore(
+          sessionId: sessionId,
+          score: overall,
+          suggestions: suggestions,
+          vocabImpact: vocabImpact,
+        );
 
         final historyRepo = ref.read(historyRepositoryProvider);
         await historyRepo.insertScore(widget.documentId, overall);

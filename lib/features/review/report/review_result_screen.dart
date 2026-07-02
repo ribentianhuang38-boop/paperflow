@@ -75,7 +75,7 @@ class _ReviewResultScreenState extends ConsumerState<ReviewResultScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(LucideIcons.aspectRatio),
+              leading: const Icon(LucideIcons.maximize2),
               title: const Text('Share Standard Card (1080 x 1350)'),
               onTap: () {
                 Navigator.pop(ctx);
