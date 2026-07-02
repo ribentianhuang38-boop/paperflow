@@ -250,7 +250,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         
         final htmlContent = snap.data!;
         
-        final controller = WebViewController()
+        final controller = WebViewController();
+        controller
           ..setJavaScriptMode(JavaScriptMode.unrestricted)
           ..setBackgroundColor(isDark ? Colors.black : Colors.white)
           ..setNavigationDelegate(
