@@ -88,14 +88,24 @@ class AiClient {
   Future<bool> testConnection() async {
     try {
       final response = await _dio.get(
-        '$_backendUrl/health',
+        '$_backendUrl/v1/models',
         options: Options(
           headers: {'Authorization': 'Bearer $_accessKey'},
         ),
       );
       return response.statusCode == 200;
     } catch (_) {
-      return false;
+      try {
+        final response = await _dio.get(
+          '$_backendUrl/health',
+          options: Options(
+            headers: {'Authorization': 'Bearer $_accessKey'},
+          ),
+        );
+        return response.statusCode == 200;
+      } catch (_) {
+        return false;
+      }
     }
   }
 }

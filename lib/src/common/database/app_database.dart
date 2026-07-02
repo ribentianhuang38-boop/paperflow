@@ -35,6 +35,14 @@ class AppDatabase {
           }
         }
       },
+      onOpen: (db) async {
+        try {
+          await db.execute('ALTER TABLE recall_sessions ADD COLUMN suggestions TEXT');
+        } catch (_) {}
+        try {
+          await db.execute('ALTER TABLE recall_sessions ADD COLUMN vocabImpact TEXT');
+        } catch (_) {}
+      },
     );
   }
 

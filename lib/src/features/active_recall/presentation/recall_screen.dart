@@ -21,7 +21,7 @@ class RecallScreen extends ConsumerStatefulWidget {
 
 class _RecallScreenState extends ConsumerState<RecallScreen> {
   final PageController _pageController = PageController();
-  final TextEditingController _answerController = TextEditingController();
+  final List<TextEditingController> _answerControllers = [];
   final SpeechToText _speech = SpeechToText();
 
   List<String> _paragraphs = [];
@@ -40,7 +40,9 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
   @override
   void dispose() {
     _pageController.dispose();
-    _answerController.dispose();
+    for (final c in _answerControllers) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -128,12 +130,16 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
       setState(() {
         _paragraphs = paragraphs;
         _answers = List.filled(paragraphs.length, '');
+        _answerControllers.clear();
+        _answerControllers.addAll(List.generate(paragraphs.length, (i) => TextEditingController()));
       });
     } else if (mounted) {
       // Fallback: show a message
       setState(() {
         _paragraphs = ['Could not extract text from this document. Try with a text-based document (EPUB, HTML, TXT, MD).'];
         _answers = [''];
+        _answerControllers.clear();
+        _answerControllers.add(TextEditingController());
       });
     }
   }
@@ -187,7 +193,7 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _paragraphs.length,
               onPageChanged: (i) {
-                setState(() { _currentIndex = i; _answerController.text = _answers[i]; });
+                setState(() { _currentIndex = i; });
               },
               itemBuilder: (ctx, i) => SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
@@ -226,7 +232,7 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
                     const SizedBox(height: 16),
                     // Input
                     TextField(
-                      controller: _answerController,
+                      controller: _answerControllers[i],
                       maxLines: 5,
                       style: AppTypography.bodySans.copyWith(
                         color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
@@ -332,7 +338,10 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
     } else {
       setState(() => _isListening = true);
       await _speech.listen(onResult: (r) {
-        setState(() { _answerController.text = r.recognizedWords; _answers[_currentIndex] = r.recognizedWords; });
+        setState(() {
+          _answerControllers[_currentIndex].text = r.recognizedWords;
+          _answers[_currentIndex] = r.recognizedWords;
+        });
       });
     }
   }
@@ -439,6 +448,15 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
         }
       } catch (e) {
         debugPrint('AI analysis failed: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('AI Analysis failed: $e. Using offline mode.'),
+              backgroundColor: AppColors.error,
+              duration: const Duration(seconds: 8),
+            ),
+          );
+        }
         // Continue even if AI fails - set defaults so user can still see their answers
         final answers = await recallDao.getAnswersBySession(sessionId);
         for (final answer in answers) {
