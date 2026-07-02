@@ -78,8 +78,15 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
             content = buf.toString();
           } catch (_) {}
           break;
-        case 'md':
         case 'html':
+          final rawHtml = await file.readAsString();
+          content = rawHtml
+              .replaceAll(RegExp(r'<style[^>]*>[\s\S]*?<\/style>'), ' ')
+              .replaceAll(RegExp(r'<[^>]*>'), ' ')
+              .replaceAll(RegExp(r'\s+'), ' ')
+              .trim();
+          break;
+        case 'md':
         case 'txt':
           content = await file.readAsString();
           break;

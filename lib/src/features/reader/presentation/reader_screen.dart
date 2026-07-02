@@ -113,7 +113,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       case 'epub':
         return _buildEpubView(doc, isDark);
       case 'md': case 'html': case 'txt':
-        return _buildTextView(doc, isDark);
+        return _buildHtmlTextView(doc, isDark);
       default:
         return Center(
           child: Text('Unsupported format: ${doc.fileType}',
@@ -251,14 +251,158 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     );
   }
 
-  Widget _buildTextView(Document doc, bool isDark) {
+  Widget _buildHtmlTextView(Document doc, bool isDark) {
     return FutureBuilder<String>(
-      future: File(doc.filePath).readAsString(),
+      future: _prepareHtmlContent(doc),
       builder: (ctx, snap) {
         if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-        return _buildParagraphReader(snap.data!, isDark);
+        
+        final htmlContent = snap.data!;
+        
+        final controller = WebViewController()
+          ..setJavaScriptMode(JavaScriptMode.unrestricted)
+          ..setBackgroundColor(isDark ? Colors.black : Colors.white)
+          ..setNavigationDelegate(
+            NavigationDelegate(
+              onPageFinished: (_) {
+                if (widget.initialParagraphIdx != null) {
+                  final idx = widget.initialParagraphIdx!;
+                  controller.runJavaScript('''
+                    (function() {
+                      var paragraphs = document.querySelectorAll('p');
+                      if (paragraphs && paragraphs.length > $idx) {
+                        var target = paragraphs[$idx];
+                        target.scrollIntoView({behavior: 'smooth', block: 'center'});
+                        target.classList.add('highlight-paragraph');
+                      }
+                    })();
+                  ''');
+                }
+              },
+            ),
+          )
+          ..loadHtmlString(htmlContent);
+
+        return WebViewWidget(controller: controller);
       },
     );
+  }
+
+  Future<String> _prepareHtmlContent(Document doc) async {
+    final file = File(doc.filePath);
+    if (!await file.exists()) return '<html><body>File not found</body></html>';
+    
+    final content = await file.readAsString();
+    
+    final stylesheet = '''
+      <style>
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Source Serif 4", Georgia, serif;
+          font-size: 19px;
+          line-height: 1.75;
+          color: #1c1c1e;
+          background-color: #fafafb;
+          margin: 0;
+          padding: 24px 24px 120px 24px;
+        }
+        @media (prefers-color-scheme: dark) {
+          body {
+            color: #f5f5f7;
+            background-color: #000000;
+          }
+        }
+        article {
+          max-width: 640px;
+          margin: 0 auto;
+        }
+        h1 {
+          font-size: 28px;
+          font-weight: 700;
+          line-height: 1.3;
+          margin-top: 16px;
+          margin-bottom: 12px;
+        }
+        h2 {
+          font-size: 22px;
+          font-weight: 600;
+          margin-top: 24px;
+          margin-bottom: 12px;
+        }
+        .author, .site {
+          font-size: 14px;
+          color: #8e8e93;
+          margin: 4px 0;
+        }
+        hr {
+          border: 0;
+          border-top: 1px solid #e5e5ea;
+          margin: 20px 0;
+        }
+        @media (prefers-color-scheme: dark) {
+          hr {
+            border-top: 1px solid #38383a;
+          }
+        }
+        p {
+          margin-bottom: 24px;
+        }
+        img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 12px;
+          margin: 16px 0;
+        }
+        blockquote {
+          border-left: 3px solid #007aff;
+          padding-left: 16px;
+          margin: 20px 0;
+          font-style: italic;
+          color: #8e8e93;
+        }
+        .highlight-paragraph {
+          background-color: rgba(0, 122, 255, 0.15);
+          border-left: 4px solid #007aff;
+          padding-left: 12px;
+          padding-top: 8px;
+          padding-bottom: 8px;
+          border-radius: 4px;
+        }
+      </style>
+    ''';
+
+    if (doc.fileType == 'html') {
+      if (content.contains('</head>')) {
+        return content.replaceFirst('</head>', '$stylesheet</head>');
+      }
+      return '<html><head>$stylesheet</head><body><article>$content</article></body></html>';
+    } else {
+      final paragraphs = content.split(RegExp(r'\n{2,}'))
+          .map((p) => p.trim())
+          .where((p) => p.isNotEmpty)
+          .toList();
+      
+      final buf = StringBuffer();
+      buf.writeln('<!DOCTYPE html><html><head><meta charset="utf-8">');
+      buf.writeln('<meta name="viewport" content="width=device-width, initial-scale=1">');
+      buf.writeln(stylesheet);
+      buf.writeln('</head><body><article>');
+      buf.writeln('<h1>${doc.title}</h1><hr>');
+      
+      for (final p in paragraphs) {
+        if (p.startsWith('# ')) {
+          buf.writeln('<h1>${p.substring(2)}</h1>');
+        } else if (p.startsWith('## ')) {
+          buf.writeln('<h2>${p.substring(3)}</h2>');
+        } else if (p.startsWith('- ')) {
+          buf.writeln('<ul><li>${p.substring(2)}</li></ul>');
+        } else {
+          buf.writeln('<p>$p</p>');
+        }
+      }
+      
+      buf.writeln('</article></body></html>');
+      return buf.toString();
+    }
   }
 
   Future<String> _loadEpubText(String path) async {
