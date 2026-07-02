@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/app/providers.dart';
 import '../../../core/design_system/color_tokens.dart';
@@ -163,7 +163,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               _SettingTile(
                 icon: LucideIcons.key,
                 label: 'Access Key',
-                value: settings.accessKey.isEmpty ? 'Not set' : '••••••••',
+                value: settings.accessKey.isEmpty ? 'Not set' : '•••••••�?,
                 isDark: isDark,
                 onTap: () => _editField('Access Key', _accessKeyController, (v) {
                   settings.setAccessKey(v); ref.invalidate(settingsRepositoryProvider);

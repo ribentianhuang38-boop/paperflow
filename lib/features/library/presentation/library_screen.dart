@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:path/path.dart' as p;
 import 'package:intl/intl.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/app/providers.dart';
 import '../../../core/design_system/color_tokens.dart';

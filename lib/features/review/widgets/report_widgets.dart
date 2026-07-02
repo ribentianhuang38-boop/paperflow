@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/design_system/color_tokens.dart';
 import '../../../core/design_system/typography.dart';
 
@@ -326,7 +326,7 @@ class SuggestionsSection extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('â€¢ ', style: TextStyle(
+                    Text('â€?', style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: ColorTokens.getTextTertiary(isDark),
