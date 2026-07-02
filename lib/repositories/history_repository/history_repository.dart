@@ -34,4 +34,16 @@ class HistoryRepository {
       'createdAt': DateTime.now().millisecondsSinceEpoch,
     });
   }
+
+  Future<List<ReadingHistory>> getRecentHistory(int days) async {
+    final db = await _storageService.database;
+    final cutoff = DateTime.now().subtract(Duration(days: days)).millisecondsSinceEpoch;
+    final list = await db.query(
+      'mastery_scores',
+      where: 'createdAt >= ?',
+      whereArgs: [cutoff],
+      orderBy: 'createdAt ASC',
+    );
+    return list.map((item) => ReadingHistory.fromMap(item)).toList();
+  }
 }

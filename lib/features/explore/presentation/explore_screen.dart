@@ -8,12 +8,12 @@ import '../../../core/app/providers.dart';
 import '../../../core/design_system/color_tokens.dart';
 import '../../../core/design_system/typography.dart';
 import '../../../services/browser/browser_service.dart';
-import '../article_adapter/generic_adapter.dart';
-import '../article_adapter/nature_adapter.dart';
-import '../article_adapter/science_adapter.dart';
-import '../article_adapter/arxiv_adapter.dart';
-import '../article_adapter/cell_adapter.dart';
-import '../article_adapter/pubmed_adapter.dart';
+import '../../../services/importer/article_adapter/generic_adapter.dart';
+import '../../../services/importer/article_adapter/nature_adapter.dart';
+import '../../../services/importer/article_adapter/science_adapter.dart';
+import '../../../services/importer/article_adapter/arxiv_adapter.dart';
+import '../../../services/importer/article_adapter/cell_adapter.dart';
+import '../../../services/importer/article_adapter/pubmed_adapter.dart';
 
 class ExploreScreen extends ConsumerStatefulWidget {
   const ExploreScreen({super.key});

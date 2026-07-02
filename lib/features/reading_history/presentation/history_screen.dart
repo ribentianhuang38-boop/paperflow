@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/app/providers.dart';
 import '../../../core/design_system/color_tokens.dart';
 import '../../../core/design_system/typography.dart';
-import '../../../models/history/history.dart';
+import '../../../models/reading_history/reading_history.dart';
 
 class ReadingHistoryScreen extends ConsumerStatefulWidget {
   const ReadingHistoryScreen({super.key});
