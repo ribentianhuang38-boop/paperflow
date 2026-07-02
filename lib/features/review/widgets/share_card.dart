@@ -264,7 +264,7 @@ class ShareSummaryCardWidget extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'Read â€?Recall â€?Review',
+                'Read â€¢ Recall â€¢ Review',
                 style: AppTypography.caption2.copyWith(
                   color: Colors.white.withOpacity(0.3),
                   letterSpacing: 2,

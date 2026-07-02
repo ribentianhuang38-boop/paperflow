@@ -464,7 +464,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         
         buf.writeln('<p class="$highlightClass" data-index="$globalParagraphIdx">');
         buf.writeln(renderedText);
-        buf.writeln('<span class="para-note-btn ${hasNote ? 'has-note' : ''}" onclick="onNoteClick(event, $globalParagraphIdx)">${hasNote ? '📝 Note' : '�?Note'}</span>');
+        buf.writeln('<span class="para-note-btn ${hasNote ? 'has-note' : ''}" onclick="onNoteClick(event, $globalParagraphIdx)">${hasNote ? '📝 Note' : '➕ Note'}</span>');
         buf.writeln('</p>');
         
         globalParagraphIdx++;

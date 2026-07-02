@@ -326,7 +326,7 @@ class SuggestionsSection extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('â€?', style: TextStyle(
+                    Text('â€¢ ', style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: ColorTokens.getTextTertiary(isDark),

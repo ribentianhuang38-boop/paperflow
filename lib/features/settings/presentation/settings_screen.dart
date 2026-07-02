@@ -163,7 +163,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               _SettingTile(
                 icon: LucideIcons.key,
                 label: 'Access Key',
-                value: settings.accessKey.isEmpty ? 'Not set' : '•••••••�?,
+                value: settings.accessKey.isEmpty ? 'Not set' : '••••••••',
                 isDark: isDark,
                 onTap: () => _editField('Access Key', _accessKeyController, (v) {
                   settings.setAccessKey(v); ref.invalidate(settingsRepositoryProvider);
