@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../../core/app/providers.dart';
 import '../../../../core/design_system/color_tokens.dart';
@@ -102,7 +103,7 @@ class _DictionaryLookupSheetState extends ConsumerState<DictionaryLookupSheet> {
         final definition = data['definition'] as String;
 
         return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -110,14 +111,14 @@ class _DictionaryLookupSheetState extends ConsumerState<DictionaryLookupSheet> {
               Center(
                 child: Container(
                   width: 36,
-                  height: 5,
+                  height: 4,
                   decoration: BoxDecoration(
                     color: ColorTokens.getDivider(isDark),
-                    borderRadius: BorderRadius.circular(2.5),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -129,6 +130,7 @@ class _DictionaryLookupSheetState extends ConsumerState<DictionaryLookupSheet> {
                           displayWord,
                           style: AppTypography.largeTitle.copyWith(
                             color: ColorTokens.getTextPrimary(isDark),
+                            fontWeight: FontWeight.bold,
                             fontSize: 28,
                           ),
                         ),
@@ -147,9 +149,9 @@ class _DictionaryLookupSheetState extends ConsumerState<DictionaryLookupSheet> {
                   ),
                   IconButton(
                     icon: Icon(
-                      _isSaved ? Icons.star_rounded : Icons.star_outline_rounded,
+                      _isSaved ? LucideIcons.star : LucideIcons.star,
                       color: _isSaved ? Colors.amber : ColorTokens.getTextTertiary(isDark),
-                      size: 28,
+                      size: 24,
                     ),
                     onPressed: () async {
                       final vocabRepo = ref.read(vocabularyRepositoryProvider);
@@ -186,8 +188,9 @@ class _DictionaryLookupSheetState extends ConsumerState<DictionaryLookupSheet> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: ColorTokens.accent.withOpacity(0.1),
+                      color: ColorTokens.accent.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: ColorTokens.accent.withOpacity(0.2), width: 0.5),
                     ),
                     child: Text(
                       pos.toUpperCase(),
@@ -206,13 +209,14 @@ class _DictionaryLookupSheetState extends ConsumerState<DictionaryLookupSheet> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: ColorTokens.getSurfaceSecondary(isDark),
                   borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: ColorTokens.getDivider(isDark), width: 0.5),
                 ),
                 child: Text(
                   definition,
@@ -223,7 +227,7 @@ class _DictionaryLookupSheetState extends ConsumerState<DictionaryLookupSheet> {
                 ),
               ),
               if (_recentLookups.isNotEmpty) ...[
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
                 Text(
                   'Recent Lookups',
                   style: AppTypography.caption2.copyWith(
@@ -251,6 +255,7 @@ class _DictionaryLookupSheetState extends ConsumerState<DictionaryLookupSheet> {
                           backgroundColor: ColorTokens.getSurfaceSecondary(isDark),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
+                            side: BorderSide(color: ColorTokens.getDivider(isDark), width: 0.5),
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           onPressed: () => _updateWord(item.word),

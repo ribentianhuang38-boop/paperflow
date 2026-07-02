@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/design_system/color_tokens.dart';
 import '../../../core/design_system/typography.dart';
 
@@ -11,57 +12,43 @@ class ScoreCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = score >= 80 ? ColorTokens.success : score >= 60 ? ColorTokens.warning : ColorTokens.error;
-
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
       decoration: BoxDecoration(
-        color: ColorTokens.getSurface(isDark),
-        borderRadius: BorderRadius.circular(24),
+        color: ColorTokens.getBackground(isDark),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: ColorTokens.getDivider(isDark), width: 1.0),
+        boxShadow: ColorTokens.getShadow(isDark),
       ),
       child: Column(
         children: [
-          Text('Overall Understanding', style: AppTypography.subheadline.copyWith(
-            color: ColorTokens.getTextSecondary(isDark),
-          )),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: 130,
-            height: 130,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                SizedBox(
-                  width: 130,
-                  height: 130,
-                  child: CircularProgressIndicator(
-                    value: score / 100,
-                    strokeWidth: 10,
-                    backgroundColor: ColorTokens.getDivider(isDark),
-                    valueColor: AlwaysStoppedAnimation(color),
-                  ),
-                ),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('${score.round()}%', style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 36,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    )),
-                    const SizedBox(height: 4),
-                    Text(
-                      score >= 80 ? 'Mastered' : score >= 60 ? 'Review Needed' : 'Low Recall',
-                      style: AppTypography.caption1.copyWith(
-                        color: ColorTokens.getTextTertiary(isDark),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+          Text(
+            'COMPREHENSION INDEX',
+            style: AppTypography.caption2.copyWith(
+              color: ColorTokens.getTextTertiary(isDark),
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '${score.round()}%',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 72,
+              fontWeight: FontWeight.bold,
+              color: ColorTokens.getTextPrimary(isDark),
+              letterSpacing: -2.0,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            score >= 80 ? 'EXCELLENT COMPREHENSION' : score >= 60 ? 'PASSABLE COMPREHENSION' : 'LOW RECALL ACCURACY',
+            style: AppTypography.caption1.copyWith(
+              color: score >= 80 ? ColorTokens.success : score >= 60 ? ColorTokens.warning : ColorTokens.error,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
             ),
           ),
         ],
@@ -90,7 +77,7 @@ class CategoryHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: color, size: 24),
+        Icon(icon, color: color, size: 20),
         const SizedBox(width: 8),
         Text(title, style: AppTypography.title3.copyWith(
           color: ColorTokens.getTextPrimary(isDark),
@@ -100,10 +87,11 @@ class CategoryHeader extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(10),
+            color: color.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: color.withOpacity(0.2), width: 0.5),
           ),
-          child: Text('$count', style: AppTypography.caption1.copyWith(
+          child: Text('$count', style: AppTypography.caption2.copyWith(
             color: color,
             fontWeight: FontWeight.bold,
           )),
@@ -134,22 +122,25 @@ class CorrectAnswerTile extends StatelessWidget {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ColorTokens.getSurface(isDark),
-        borderRadius: BorderRadius.circular(12),
+        color: ColorTokens.getBackground(isDark),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: ColorTokens.getDivider(isDark), width: 1.0),
+        boxShadow: ColorTokens.getShadow(isDark),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: ColorTokens.success.withOpacity(0.1),
+              color: ColorTokens.success.withOpacity(0.08),
               borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: ColorTokens.success.withOpacity(0.2), width: 0.5),
             ),
             child: Text('P ${index + 1}', style: const TextStyle(
               fontFamily: 'Inter',
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.bold,
               color: ColorTokens.success,
             )),
@@ -158,7 +149,7 @@ class CorrectAnswerTile extends StatelessWidget {
           Expanded(
             child: Text(
               trimmedPreview,
-              style: AppTypography.caption1.copyWith(
+              style: AppTypography.subheadline.copyWith(
                 color: ColorTokens.getTextSecondary(isDark),
               ),
               maxLines: 1,
@@ -198,10 +189,12 @@ class DetailAnswerCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: ColorTokens.getSurface(isDark),
-        borderRadius: BorderRadius.circular(18),
+        color: ColorTokens.getBackground(isDark),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: ColorTokens.getDivider(isDark), width: 1.0),
+        boxShadow: ColorTokens.getShadow(isDark),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -216,79 +209,78 @@ class DetailAnswerCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(8),
+                  color: color.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: color.withOpacity(0.2), width: 0.5),
                 ),
                 child: Text('${score.round()}%', style: TextStyle(
                   fontFamily: 'Inter',
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
                   color: color,
                 )),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text('Original Text:', style: AppTypography.caption1.copyWith(
+          const SizedBox(height: 16),
+          Text('ORIGINAL PARAGRAPH', style: AppTypography.caption2.copyWith(
             color: ColorTokens.getTextTertiary(isDark),
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.bold,
           )),
-          const SizedBox(height: 4),
-          Text(originalText, style: AppTypography.caption1.copyWith(
+          const SizedBox(height: 6),
+          Text(originalText, style: AppTypography.subheadline.copyWith(
             color: ColorTokens.getTextSecondary(isDark),
+            height: 1.5,
           )),
-          const SizedBox(height: 12),
-          Text('Your Recall:', style: AppTypography.caption1.copyWith(
+          const SizedBox(height: 16),
+          Text('YOUR RECALL', style: AppTypography.caption2.copyWith(
             color: ColorTokens.getTextTertiary(isDark),
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.bold,
           )),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
-            userAnswer.trim().isEmpty ? '(No recall entered)' : userAnswer, 
-            style: AppTypography.caption1.copyWith(
+            userAnswer.trim().isEmpty ? '(No recall details provided)' : userAnswer, 
+            style: AppTypography.subheadline.copyWith(
               color: ColorTokens.getTextSecondary(isDark),
               fontStyle: userAnswer.trim().isEmpty ? FontStyle.italic : null,
             )
           ),
           if (feedback.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.06),
-                borderRadius: BorderRadius.circular(10),
+                color: ColorTokens.getSurfaceSecondary(isDark),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: ColorTokens.getDivider(isDark), width: 0.5),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Coach Feedback:', style: AppTypography.caption2.copyWith(
-                    color: color,
+                  Text('COACH ADVICE', style: AppTypography.caption2.copyWith(
+                    color: ColorTokens.accent,
                     fontWeight: FontWeight.bold,
                   )),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Text(feedback, style: AppTypography.subheadline.copyWith(
                     color: ColorTokens.getTextPrimary(isDark),
-                    fontSize: 14,
+                    height: 1.4,
                   )),
                 ],
               ),
             ),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Align(
             alignment: Alignment.centerRight,
-            child: TextButton.icon(
+            child: OutlinedButton.icon(
               onPressed: () => context.push('/reader/$documentId?paragraph=$index'),
-              icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+              icon: const Icon(LucideIcons.arrowRight, size: 14),
               label: const Text('Jump to Reader'),
-              style: TextButton.styleFrom(
-                foregroundColor: ColorTokens.accent,
+              style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  side: BorderSide(color: ColorTokens.accent.withOpacity(0.2)),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
           ),
@@ -310,15 +302,17 @@ class SuggestionsSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: ColorTokens.getSurface(isDark),
+        color: ColorTokens.getBackground(isDark),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: ColorTokens.getDivider(isDark), width: 1.0),
+        boxShadow: ColorTokens.getShadow(isDark),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.auto_awesome, color: ColorTokens.accent, size: 20),
+              const Icon(LucideIcons.lightbulb, color: ColorTokens.accent, size: 18),
               const SizedBox(width: 8),
               Text('Coach Suggestions', style: AppTypography.headline.copyWith(
                 color: ColorTokens.getTextPrimary(isDark),
@@ -326,9 +320,9 @@ class SuggestionsSection extends StatelessWidget {
               )),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           ...suggestions.take(5).map((s) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.only(bottom: 10),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -370,8 +364,10 @@ class VocabularyImpactSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: ColorTokens.getSurface(isDark),
+        color: ColorTokens.getBackground(isDark),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: ColorTokens.getDivider(isDark), width: 1.0),
+        boxShadow: ColorTokens.getShadow(isDark),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -380,29 +376,32 @@ class VocabularyImpactSection extends StatelessWidget {
             color: ColorTokens.getTextPrimary(isDark),
             fontWeight: FontWeight.bold,
           )),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Text(
             'Words saved: $totalSaved. ${impactedWords.isNotEmpty ? "${impactedWords.length} directly affected recall understanding." : "No saved words affected understanding."}',
             style: AppTypography.subheadline.copyWith(
               color: ColorTokens.getTextSecondary(isDark),
+              height: 1.4,
             ),
           ),
           if (impactedWords.isNotEmpty) ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: impactedWords.map((word) => Chip(
-                    label: Text(word, style: const TextStyle(
+              children: impactedWords.map((word) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: ColorTokens.error.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: ColorTokens.error.withOpacity(0.2), width: 0.5),
+                    ),
+                    child: Text(word, style: const TextStyle(
                       fontFamily: 'Inter',
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: FontWeight.w600,
+                      color: ColorTokens.error,
                     )),
-                    backgroundColor: ColorTokens.error.withOpacity(0.08),
-                    labelStyle: const TextStyle(color: ColorTokens.error),
-                    side: BorderSide.none,
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   )).toList(),
             ),
           ],
@@ -436,8 +435,10 @@ class SubScoresSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: ColorTokens.getSurface(isDark),
+        color: ColorTokens.getBackground(isDark),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: ColorTokens.getDivider(isDark), width: 1.0),
+        boxShadow: ColorTokens.getShadow(isDark),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -449,17 +450,17 @@ class SubScoresSection extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           _buildRow('Paragraph (40%)', paragraph, isDark),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           _buildRow('Concept (30%)', concept, isDark),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           _buildRow('Logic (20%)', logic, isDark),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           _buildRow('Vocabulary (10%)', vocabulary, isDark),
           if (calculation.isNotEmpty) ...[
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
+              padding: EdgeInsets.symmetric(vertical: 14),
               child: Divider(),
             ),
             Text(
@@ -469,7 +470,7 @@ class SubScoresSection extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(
               calculation,
               style: TextStyle(
@@ -499,10 +500,10 @@ class SubScoresSection extends StatelessWidget {
           children: [
             Container(
               width: 80,
-              height: 6,
+              height: 4,
               decoration: BoxDecoration(
-                color: ColorTokens.getDivider(isDark).withOpacity(0.5),
-                borderRadius: BorderRadius.circular(3),
+                color: ColorTokens.getDivider(isDark),
+                borderRadius: BorderRadius.circular(2),
               ),
               child: Stack(
                 children: [
@@ -510,7 +511,7 @@ class SubScoresSection extends StatelessWidget {
                     width: 80 * (score / 100).clamp(0.0, 1.0),
                     decoration: BoxDecoration(
                       color: color,
-                      borderRadius: BorderRadius.circular(3),
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                 ],
@@ -555,8 +556,10 @@ class BulletSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: ColorTokens.getSurface(isDark),
+        color: ColorTokens.getBackground(isDark),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: ColorTokens.getDivider(isDark), width: 1.0),
+        boxShadow: ColorTokens.getShadow(isDark),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -568,9 +571,9 @@ class BulletSection extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           ...items.map((item) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
+            padding: const EdgeInsets.symmetric(vertical: 6),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

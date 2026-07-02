@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import 'package:shimmer/shimmer.dart';
 
 import '../../../core/app/providers.dart';
 import '../../../core/design_system/color_tokens.dart';
@@ -24,24 +27,23 @@ class ExploreScreen extends ConsumerStatefulWidget {
 
 class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   late final WebViewController _webViewController;
-  final TextEditingController _urlController = TextEditingController();
   String _currentUrl = '';
   String _currentTitle = '';
   bool _isLoading = false;
   bool _isExtracting = false;
   double _progress = 0;
-  String? _injectScript;
+  double? _dragStartX;
+
+  bool get _isShowingHub {
+    return _currentUrl.isEmpty ||
+        _currentUrl.contains('assets/explore/index.html') ||
+        _currentUrl.startsWith('file://');
+  }
 
   @override
   void initState() {
     super.initState();
-    _loadReadability();
     _initWebView();
-  }
-
-  Future<void> _loadReadability() async {
-    final browser = ref.read(browserServiceProvider);
-    _injectScript = await browser.getInjectScript();
   }
 
   void _initWebView() {
@@ -53,8 +55,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
           onPageStarted: (url) {
             setState(() {
               _currentUrl = url;
-              _urlController.text = url;
               _isLoading = true;
+              _progress = 0;
             });
           },
           onPageFinished: (url) async {
@@ -62,13 +64,26 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
               _isLoading = false;
               _currentUrl = url;
             });
+            
             final title = await _webViewController.getTitle();
             if (title != null) {
               setState(() => _currentTitle = title);
             }
-            if (_injectScript != null) {
+
+            // If loading the local explore hub, read sites.json and inject it
+            if (url.contains('assets/explore/index.html') || url.startsWith('file://')) {
               try {
-                await _webViewController.runJavaScript(_injectScript!);
+                final jsonStr = await rootBundle.loadString('assets/explore/sites.json');
+                await _webViewController.runJavaScript('window.initExplore($jsonStr);');
+              } catch (e) {
+                debugPrint("Error injecting sites.json: $e");
+              }
+            } else {
+              // Inject Readability.js into the external page for reading mode
+              try {
+                final browser = ref.read(browserServiceProvider);
+                final injectScript = await browser.getInjectScript();
+                await _webViewController.runJavaScript(injectScript);
               } catch (_) {}
             }
           },
@@ -77,13 +92,22 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
           },
         ),
       )
-      ..loadRequest(Uri.parse('https://arxiv.org'));
-  }
-
-  @override
-  void dispose() {
-    _urlController.dispose();
-    super.dispose();
+      ..addJavaScriptChannel(
+        'ExploreChannel',
+        onMessageReceived: (JavaScriptMessage message) {
+          try {
+            final json = jsonDecode(message.message);
+            final action = json['action'] as String;
+            if (action == 'navigate') {
+              final targetUrl = json['url'] as String;
+              _webViewController.loadRequest(Uri.parse(targetUrl));
+            }
+          } catch (e) {
+            debugPrint("ExploreChannel Error: $e");
+          }
+        },
+      )
+      ..loadFlutterAsset('assets/explore/index.html');
   }
 
   BaseArticleAdapter _selectAdapter(String url) {
@@ -98,23 +122,104 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
       return ArxivAdapter();
     } else if (host.contains('cell.com')) {
       return CellAdapter();
-    } else if (host.contains('ncbi.nlm.nih.gov')) {
+    } else if (host.contains('pubmed.ncbi.nlm.nih.gov')) {
       return PubmedAdapter();
     }
     return GenericAdapter();
+  }
+
+  Future<void> _captureArticle() async {
+    if (_isExtracting || _isShowingHub) return;
+    setState(() => _isExtracting = true);
+
+    try {
+      final browser = ref.read(browserServiceProvider);
+      
+      // Double check that Readability.js is loaded
+      final injectScript = await browser.getInjectScript();
+      await _webViewController.runJavaScript(injectScript);
+
+      // Run extraction
+      final extractScript = browser.getExtractScript();
+      final result = await _webViewController.runJavaScriptReturningResult(extractScript);
+      
+      String jsonStr = result.toString();
+      // Remove enclosing quotes if returned as raw string literal representation
+      if (jsonStr.startsWith('"') && jsonStr.endsWith('"')) {
+        try {
+          jsonStr = jsonDecode(jsonStr) as String;
+        } catch (_) {}
+      }
+
+      final articleData = jsonDecode(jsonStr) as Map<String, dynamic>;
+      if (articleData.containsKey('error')) {
+        throw Exception(articleData['error']);
+      }
+
+      final adapter = _selectAdapter(_currentUrl);
+      final parsedArticle = adapter.adapt(articleData, _currentUrl);
+      
+      final docTitle = parsedArticle.title.isNotEmpty ? parsedArticle.title : _currentTitle;
+      final articleWithMeta = parsedArticle.copyWith(
+        title: docTitle,
+        source: _currentUrl,
+      );
+
+      final repo = ref.read(articleRepositoryProvider);
+      final savedId = await repo.saveArticle(articleWithMeta);
+      
+      if (mounted) {
+        setState(() => _isExtracting = false);
+        context.push('/reader/$savedId');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isExtracting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('无法识别为可阅读文章: $e'),
+            backgroundColor: ColorTokens.error,
+          ),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    Widget webViewContent = WebViewWidget(controller: _webViewController);
+
+    // edge swipe gesture wrapper
+    if (!_isShowingHub) {
+      webViewContent = GestureDetector(
+        onHorizontalDragStart: (details) {
+          _dragStartX = details.globalPosition.dx;
+        },
+        onHorizontalDragUpdate: (details) {
+          if (_dragStartX != null && _dragStartX! < 50) {
+            final delta = details.globalPosition.dx - _dragStartX!;
+            if (delta > 150) {
+              _dragStartX = null; // Trigger once
+              _captureArticle();
+            }
+          }
+        },
+        onHorizontalDragEnd: (_) {
+          _dragStartX = null;
+        },
+        child: webViewContent,
+      );
+    }
+
     return Scaffold(
-      backgroundColor: ColorTokens.getBackground(isDark),
+      backgroundColor: isDark ? Colors.black : const Color(0xFFFAFAFA),
       body: SafeArea(
         child: Column(
           children: [
-            _buildUrlBar(isDark),
-            if (_isLoading)
+            if (!_isShowingHub) _buildTopBrowserBar(isDark),
+            if (_isLoading && _progress < 1.0)
               LinearProgressIndicator(
                 value: _progress,
                 backgroundColor: ColorTokens.getDivider(isDark),
@@ -124,37 +229,30 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
             Expanded(
               child: Stack(
                 children: [
-                  WebViewWidget(controller: _webViewController),
-                  Positioned(
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
-                    width: 24,
-                    child: GestureDetector(
-                      onHorizontalDragEnd: (details) {
-                        if (details.primaryVelocity != null && details.primaryVelocity! > 100) {
-                          _captureArticle();
-                        }
-                      },
-                      child: Container(color: Colors.transparent),
-                    ),
-                  ),
+                  webViewContent,
                   if (_isExtracting)
                     Container(
-                      color: ColorTokens.getBackground(isDark).withOpacity(0.92),
+                      color: ColorTokens.getBackground(isDark).withOpacity(0.95),
                       child: Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const CircularProgressIndicator(),
+                            _buildSkeletonLoader(isDark),
                             const SizedBox(height: 24),
-                            Text('Preparing Reading...', style: AppTypography.title3.copyWith(
-                              color: ColorTokens.getTextPrimary(isDark),
-                            )),
+                            Text(
+                              'PaperFlow Reading Mode',
+                              style: AppTypography.title3.copyWith(
+                                color: ColorTokens.getTextPrimary(isDark),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                             const SizedBox(height: 8),
-                            Text('Extracting article content', style: AppTypography.subheadline.copyWith(
-                              color: ColorTokens.getTextSecondary(isDark),
-                            )),
+                            Text(
+                              'Extracting article text and figures...',
+                              style: AppTypography.subheadline.copyWith(
+                                color: ColorTokens.getTextSecondary(isDark),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -168,96 +266,65 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     );
   }
 
-  Widget _buildUrlBar(bool isDark) {
+  Widget _buildTopBrowserBar(bool isDark) {
+    final domain = Uri.tryParse(_currentUrl)?.host ?? _currentUrl;
+    final displayDomain = domain.startsWith("www.") ? domain.substring(4) : domain;
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: ColorTokens.getSurface(isDark),
+        color: ColorTokens.getBackground(isDark),
         border: Border(
           bottom: BorderSide(
             color: ColorTokens.getDivider(isDark),
-            width: 0.5,
+            width: 1.0,
           ),
         ),
       ),
       child: Row(
         children: [
           GestureDetector(
-            onTap: () => _webViewController.goBack(),
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: Icon(Icons.arrow_back_ios, size: 18,
-                  color: ColorTokens.getTextSecondary(isDark)),
+            onTap: () {
+              _webViewController.loadFlutterAsset('assets/explore/index.html');
+            },
+            child: Icon(
+              LucideIcons.arrowLeft,
+              size: 20,
+              color: ColorTokens.getTextSecondary(isDark),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 16),
           Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-              decoration: BoxDecoration(
-                color: ColorTokens.getSurfaceSecondary(isDark),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.lock_outline, size: 14,
-                      color: ColorTokens.getTextTertiary(isDark)),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: TextField(
-                      controller: _urlController,
-                      style: AppTypography.caption1.copyWith(
-                        color: ColorTokens.getTextPrimary(isDark),
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'Search or enter URL',
-                        hintStyle: AppTypography.caption1.copyWith(
-                          color: ColorTokens.getTextTertiary(isDark),
-                        ),
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        filled: false,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                        isDense: true,
-                      ),
-                      keyboardType: TextInputType.url,
-                      textInputAction: TextInputAction.go,
-                      onSubmitted: (value) {
-                        String url = value.trim();
-                        if (url.isEmpty) return;
-                        if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                          if (url.contains('.') && !url.contains(' ')) {
-                            url = 'https://$url';
-                          } else {
-                            url = 'https://www.google.com/search?q=${Uri.encodeComponent(url)}';
-                          }
-                        }
-                        _webViewController.loadRequest(Uri.parse(url));
-                      },
-                    ),
-                  ),
-                ],
+            child: Text(
+              displayDomain,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.subheadline.copyWith(
+                color: ColorTokens.getTextPrimary(isDark),
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 16),
           GestureDetector(
             onTap: _captureArticle,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 color: ColorTokens.accent,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.auto_stories, size: 16, color: Colors.white),
-                  const SizedBox(width: 4),
-                  Text('Read', style: AppTypography.caption1.copyWith(
-                    color: Colors.white, fontWeight: FontWeight.w600,
-                  )),
+                  const Icon(LucideIcons.bookOpen, size: 16, color: Colors.white),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Read',
+                    style: AppTypography.caption1.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -267,69 +334,19 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     );
   }
 
-  Future<void> _captureArticle() async {
-    setState(() => _isExtracting = true);
-
-    try {
-      final browser = ref.read(browserServiceProvider);
-      if (_injectScript != null) {
-        await _webViewController.runJavaScript(_injectScript!);
-        await Future.delayed(const Duration(milliseconds: 800));
-      }
-
-      final result = await _webViewController.runJavaScriptReturningResult(
-        browser.getExtractScript(),
-      );
-
-      String jsonStr;
-      if (result is String) {
-        jsonStr = result;
-      } else {
-        jsonStr = result.toString();
-      }
-
-      if (jsonStr.startsWith('"') && jsonStr.endsWith('"')) {
-        jsonStr = jsonDecode(jsonStr) as String;
-      }
-
-      final json = jsonDecode(jsonStr) as Map<String, dynamic>;
-      if (json.containsKey('error')) {
-        setState(() => _isExtracting = false);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: ${json['error']}'), backgroundColor: ColorTokens.error),
-          );
-        }
-        return;
-      }
-
-      final url = _currentUrl;
-      final adapter = _selectAdapter(url);
-      final rawArticle = adapter.adapt(json, url);
-
-      final importer = ref.read(importerServiceProvider);
-      
-      // Save web capture using the ImporterService
-      final cleanContent = json['content'] as String? ?? '';
-      final savedArticle = await importer.importCapturedWeb(
-        title: rawArticle.title,
-        content: cleanContent,
-        url: url,
-        author: rawArticle.author,
-      );
-
-      setState(() => _isExtracting = false);
-
-      if (mounted) {
-        context.push('/reader/${savedArticle.id}');
-      }
-    } catch (e) {
-      setState(() => _isExtracting = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Extraction failed: $e'), backgroundColor: ColorTokens.error),
-        );
-      }
-    }
+  Widget _buildSkeletonLoader(bool isDark) {
+    return Shimmer.fromColors(
+      baseColor: isDark ? Colors.grey[900]! : Colors.grey[300]!,
+      highlightColor: isDark ? Colors.grey[800]! : Colors.grey[100]!,
+      child: Column(
+        children: [
+          Container(width: 220, height: 16, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4))),
+          const SizedBox(height: 12),
+          Container(width: 170, height: 12, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4))),
+          const SizedBox(height: 12),
+          Container(width: 270, height: 12, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4))),
+        ],
+      ),
+    );
   }
 }

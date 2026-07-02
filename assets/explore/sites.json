@@ -1,0 +1,50 @@
+{
+  "categories": [
+    {
+      "name": "Academic Journals",
+      "sites": [
+        { "name": "Nature", "url": "https://www.nature.com" },
+        { "name": "Science", "url": "https://www.science.org" },
+        { "name": "Cell", "url": "https://www.cell.com" },
+        { "name": "Nature Reviews", "url": "https://www.nature.com/reviews" },
+        { "name": "PNAS", "url": "https://www.pnas.org" },
+        { "name": "The Lancet", "url": "https://www.thelancet.com" },
+        { "name": "NEJM", "url": "https://www.nejm.org" }
+      ]
+    },
+    {
+      "name": "Preprint",
+      "sites": [
+        { "name": "arXiv", "url": "https://arxiv.org" },
+        { "name": "bioRxiv", "url": "https://www.biorxiv.org" },
+        { "name": "medRxiv", "url": "https://www.medrxiv.org" },
+        { "name": "ChemRxiv", "url": "https://chemrxiv.org" },
+        { "name": "Research Square", "url": "https://www.researchsquare.com" },
+        { "name": "OpenReview", "url": "https://openreview.net" }
+      ]
+    },
+    {
+      "name": "Academic Search",
+      "sites": [
+        { "name": "Google Scholar", "url": "https://scholar.google.com" },
+        { "name": "Semantic Scholar", "url": "https://www.semanticscholar.org" },
+        { "name": "PubMed", "url": "https://pubmed.ncbi.nlm.nih.gov" },
+        { "name": "Crossref", "url": "https://www.crossref.org" },
+        { "name": "DOAJ", "url": "https://doaj.org" },
+        { "name": "Dimensions", "url": "https://www.dimensions.ai" }
+      ]
+    },
+    {
+      "name": "Science News",
+      "sites": [
+        { "name": "Nature News", "url": "https://www.nature.com/news" },
+        { "name": "Science News", "url": "https://www.sciencenews.org" },
+        { "name": "MIT Technology Review", "url": "https://www.technologyreview.com" },
+        { "name": "IEEE Spectrum", "url": "https://spectrum.ieee.org" },
+        { "name": "Phys.org", "url": "https://phys.org" },
+        { "name": "New Scientist", "url": "https://www.newscientist.com" },
+        { "name": "The Conversation", "url": "https://theconversation.com" }
+      ]
+    }
+  ]
+}

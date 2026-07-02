@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PaperFlow Explore</title>
+  <style>
+    :root {
+      --bg-color: #FAFAFA;
+      --card-bg: #FFFFFF;
+      --text-primary: #111111;
+      --text-secondary: #666666;
+      --text-tertiary: #999999;
+      --accent: #4F6BFF;
+      --border: #ECECEC;
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-color: #000000;
+        --card-bg: #1C1C1E;
+        --text-primary: #F5F5F7;
+        --text-secondary: #AEAEB2;
+        --text-tertiary: #636366;
+        --border: #2C2C2E;
+        --shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      padding: 24px 24px 100px 24px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 32px;
+      margin-top: 60px; /* Leave space for fixed search bar */
+    }
+
+    header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+
+    header .subtitle {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    /* Fixed top search bar container */
+    .search-fixed-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background-color: var(--bg-color);
+      padding: 12px 24px;
+      z-index: 1000;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .search-box {
+      max-width: 1000px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      background-color: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px 16px;
+      box-shadow: var(--shadow);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .search-box:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(79, 107, 255, 0.1);
+    }
+
+    .search-box svg {
+      width: 16px;
+      height: 16px;
+      fill: none;
+      stroke: var(--text-tertiary);
+      stroke-width: 2;
+      margin-right: 12px;
+    }
+
+    .search-box input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      color: var(--text-primary);
+      font-size: 14px;
+      outline: none;
+      font-family: inherit;
+    }
+
+    /* Section group styling */
+    section {
+      margin-bottom: 40px;
+    }
+
+    section h2 {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-tertiary);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    @media (min-width: 768px) {
+      .grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    /* Card styling */
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      position: relative;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      transition: border-color 0.18s ease, transform 0.18s ease;
+    }
+
+    .card:hover {
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    .favicon-wrapper {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background-color: var(--bg-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 12px;
+      border: 0.5px solid var(--border);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .favicon-wrapper img {
+      width: 18px;
+      height: 18px;
+      object-fit: contain;
+    }
+
+    .card-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+
+    .card-domain {
+      font-size: 11px;
+      color: var(--text-secondary);
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Pin/Star Button */
+    .star-btn {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.2s, background-color 0.2s;
+    }
+
+    .card:hover .star-btn {
+      opacity: 1;
+    }
+
+    /* For touch devices, show stars always but faintly */
+    @media (hover: none) {
+      .star-btn {
+        opacity: 0.4;
+      }
+    }
+
+    .star-btn.pinned {
+      opacity: 1;
+    }
+
+    .star-btn svg {
+      width: 14px;
+      height: 14px;
+      fill: none;
+      stroke: var(--text-tertiary);
+      stroke-width: 2;
+    }
+
+    .star-btn.pinned svg {
+      fill: #FFCC00;
+      stroke: #FFCC00;
+    }
+
+    .star-btn:hover {
+      background-color: var(--bg-color);
+    }
+  </style>
+</head>
+<body>
+  <div class="search-fixed-container">
+    <div class="search-box">
+      <!-- Lucide Search Icon -->
+      <svg viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <input type="text" id="search-input" placeholder="输入网址..." />
+    </div>
+  </div>
+
+  <div class="container">
+    <header>
+      <h1>PaperFlow Explore</h1>
+      <div class="subtitle">开始今天的阅读。</div>
+    </header>
+
+    <!-- Pinned Sites -->
+    <section id="sec-pinned" style="display: none;">
+      <h2>Pinned</h2>
+      <div class="grid" id="pinned-grid"></div>
+    </section>
+
+    <!-- Recent Sites -->
+    <section id="sec-recent" style="display: none;">
+      <h2>Recent</h2>
+      <div class="grid" id="recent-grid"></div>
+    </section>
+
+    <!-- Main Categories populated dynamically -->
+    <div id="categories-container"></div>
+  </div>
+
+  <script>
+    // Global State
+    let sitesData = null;
+    let pinnedList = [];
+    let recentList = [];
+
+    // Initialize data
+    document.addEventListener("DOMContentLoaded", () => {
+      // Set up search listener
+      const searchInput = document.getElementById("search-input");
+      searchInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          const value = searchInput.value.trim();
+          if (value) {
+            triggerNavigate(value);
+          }
+        }
+      });
+
+      // Load saved user configs from localStorage
+      loadUserData();
+      
+      // Request sites.json
+      fetch('./sites.json')
+        .then(response => response.json())
+        .then(data => {
+          sitesData = data;
+          renderAll();
+        })
+        .catch(err => {
+          console.error("Failed to load sites.json natively: ", err);
+          // Flutter will invoke initExplore(sitesData) if native fetch fails
+        });
+    });
+
+    // Called by Flutter if native fetch is restricted by CORS same-origin
+    window.initExplore = function(jsonStr, flutterPinned, flutterRecent) {
+      try {
+        sitesData = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
+        if (flutterPinned) pinnedList = flutterPinned;
+        if (flutterRecent) recentList = flutterRecent;
+        renderAll();
+      } catch (e) {
+        console.error("Error initializing Explore: ", e);
+      }
+    };
+
+    function loadUserData() {
+      try {
+        const p = localStorage.getItem("pf_pinned");
+        if (p) pinnedList = JSON.parse(p);
+        const r = localStorage.getItem("pf_recent");
+        if (r) recentList = JSON.parse(r);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function saveUserData() {
+      try {
+        localStorage.setItem("pf_pinned", JSON.stringify(pinnedList));
+        localStorage.setItem("pf_recent", JSON.stringify(recentList));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function renderAll() {
+      renderPinned();
+      renderRecent();
+      renderCategories();
+    }
+
+    function getDomain(url) {
+      try {
+        const hostname = new URL(url).hostname;
+        return hostname.startsWith("www.") ? hostname.substring(4) : hostname;
+      } catch (e) {
+        return url;
+      }
+    }
+
+    function getFaviconUrl(url) {
+      const domain = getDomain(url);
+      return `https://www.google.com/s2/favicons?sz=64&domain=${domain}`;
+    }
+
+    function renderPinned() {
+      const sec = document.getElementById("sec-pinned");
+      const grid = document.getElementById("pinned-grid");
+      grid.innerHTML = "";
+
+      if (pinnedList.length === 0) {
+        sec.style.display = "none";
+        return;
+      }
+
+      sec.style.display = "block";
+      pinnedList.forEach((site) => {
+        grid.appendChild(createCard(site, true));
+      });
+    }
+
+    function renderRecent() {
+      const sec = document.getElementById("sec-recent");
+      const grid = document.getElementById("recent-grid");
+      grid.innerHTML = "";
+
+      if (recentList.length === 0) {
+        sec.style.display = "none";
+        return;
+      }
+
+      sec.style.display = "block";
+      recentList.slice(0, 4).forEach((site) => {
+        grid.appendChild(createCard(site, false));
+      });
+    }
+
+    function renderCategories() {
+      const container = document.getElementById("categories-container");
+      container.innerHTML = "";
+
+      if (!sitesData || !sitesData.categories) return;
+
+      sitesData.categories.forEach((cat) => {
+        const sec = document.createElement("section");
+        const h2 = document.createElement("h2");
+        h2.textContent = cat.name;
+        sec.appendChild(h2);
+
+        const grid = document.createElement("div");
+        grid.className = "grid";
+
+        cat.sites.forEach((site) => {
+          grid.appendChild(createCard(site, false));
+        });
+
+        sec.appendChild(grid);
+        container.appendChild(sec);
+      });
+    }
+
+    function createCard(site, isFromPinnedGroup) {
+      const card = document.createElement("div");
+      card.className = "card";
+      card.onclick = () => onSiteClick(site);
+
+      const favWrapper = document.createElement("div");
+      favWrapper.className = "favicon-wrapper";
+      
+      const img = document.createElement("img");
+      img.src = getFaviconUrl(site.url);
+      img.onerror = () => {
+        img.style.display = "none";
+        favWrapper.textContent = site.name.charAt(0).toUpperCase();
+      };
+      favWrapper.appendChild(img);
+      card.appendChild(favWrapper);
+
+      const info = document.createElement("div");
+      info.className = "card-info";
+      
+      const title = document.createElement("span");
+      title.className = "card-title";
+      title.textContent = site.name;
+      
+      const domain = document.createElement("span");
+      domain.className = "card-domain";
+      domain.textContent = getDomain(site.url);
+      
+      info.appendChild(title);
+      info.appendChild(domain);
+      card.appendChild(info);
+
+      const isPinned = pinnedList.some((s) => s.url === site.url);
+      const star = document.createElement("button");
+      star.className = "star-btn" + (isPinned ? " pinned" : "");
+      star.onclick = (e) => {
+        e.stopPropagation();
+        togglePin(site);
+      };
+      
+      // Star Icon SVG
+      star.innerHTML = `
+        <svg viewBox="0 0 24 24">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+        </svg>
+      `;
+      card.appendChild(star);
+
+      return card;
+    }
+
+    function togglePin(site) {
+      const idx = pinnedList.findIndex((s) => s.url === site.url);
+      if (idx !== -1) {
+        pinnedList.splice(idx, 1);
+      } else {
+        pinnedList.push(site);
+      }
+      saveUserData();
+      renderAll();
+      notifyFlutterUserData();
+    }
+
+    function onSiteClick(site) {
+      // Add to recent list
+      const idx = recentList.findIndex((s) => s.url === site.url);
+      if (idx !== -1) {
+        recentList.splice(idx, 1);
+      }
+      recentList.unshift(site);
+      saveUserData();
+      
+      // Trigger navigation in Flutter
+      triggerNavigate(site.url);
+    }
+
+    function triggerNavigate(url) {
+      let finalUrl = url.trim();
+      if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
+        if (finalUrl.includes('.') && !finalUrl.includes(' ')) {
+          finalUrl = 'https://' + finalUrl;
+        } else {
+          finalUrl = 'https://www.google.com/search?q=' + encodeURIComponent(finalUrl);
+        }
+      }
+      
+      try {
+        if (window.ExploreChannel) {
+          window.ExploreChannel.postMessage(JSON.stringify({
+            action: 'navigate',
+            url: finalUrl
+          }));
+        } else {
+          console.log("Navigating to: " + finalUrl);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function notifyFlutterUserData() {
+      try {
+        if (window.ExploreChannel) {
+          window.ExploreChannel.postMessage(JSON.stringify({
+            action: 'sync_data',
+            pinned: pinnedList,
+            recent: recentList
+          }));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  </script>
+</body>
+</html>

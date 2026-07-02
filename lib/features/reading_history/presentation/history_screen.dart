@@ -1,11 +1,13 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../core/app/providers.dart';
 import '../../../core/design_system/color_tokens.dart';
 import '../../../core/design_system/typography.dart';
 import '../../../models/reading_history/reading_history.dart';
+import '../../library/presentation/library_screen.dart';
 
 class ReadingHistoryScreen extends ConsumerStatefulWidget {
   const ReadingHistoryScreen({super.key});
@@ -15,7 +17,7 @@ class ReadingHistoryScreen extends ConsumerStatefulWidget {
 }
 
 class _ReadingHistoryScreenState extends ConsumerState<ReadingHistoryScreen> {
-  String _timeframe = 'Week'; // 'Week', 'Month', 'Year'
+  String _timeframe = 'Week';
 
   int get _days {
     switch (_timeframe) {
@@ -32,6 +34,7 @@ class _ReadingHistoryScreenState extends ConsumerState<ReadingHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final statsAsync = ref.watch(statsProvider);
 
     return Scaffold(
       backgroundColor: ColorTokens.getBackground(isDark),
@@ -41,27 +44,27 @@ class _ReadingHistoryScreenState extends ConsumerState<ReadingHistoryScreen> {
           builder: (context, snapshot) {
             final hasData = snapshot.hasData && snapshot.data!.isNotEmpty;
             final data = snapshot.data ?? [];
-
             final groupedData = _groupData(data);
 
             return CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Reading History',
+                          'Progress',
                           style: AppTypography.largeTitle.copyWith(
                             color: ColorTokens.getTextPrimary(isDark),
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         Text(
                           'Track your comprehension fitness and retention trends.',
-                          style: AppTypography.caption1.copyWith(
+                          style: AppTypography.subheadline.copyWith(
                             color: ColorTokens.getTextSecondary(isDark),
                           ),
                         ),
@@ -84,16 +87,26 @@ class _ReadingHistoryScreenState extends ConsumerState<ReadingHistoryScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              Icons.trending_up_rounded,
-                              size: 64,
-                              color: ColorTokens.getTextTertiary(isDark),
+                            Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                color: ColorTokens.getSurfaceSecondary(isDark),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: ColorTokens.getDivider(isDark), width: 0.5),
+                              ),
+                              child: Icon(
+                                LucideIcons.trendingUp,
+                                size: 32,
+                                color: ColorTokens.getTextTertiary(isDark),
+                              ),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 24),
                             Text(
                               'No Data in this Period',
                               style: AppTypography.title2.copyWith(
                                 color: ColorTokens.getTextPrimary(isDark),
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -102,6 +115,7 @@ class _ReadingHistoryScreenState extends ConsumerState<ReadingHistoryScreen> {
                               textAlign: TextAlign.center,
                               style: AppTypography.subheadline.copyWith(
                                 color: ColorTokens.getTextSecondary(isDark),
+                                height: 1.5,
                               ),
                             ),
                           ],
@@ -124,82 +138,23 @@ class _ReadingHistoryScreenState extends ConsumerState<ReadingHistoryScreen> {
                   ),
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+                      padding: const EdgeInsets.fromLTRB(24, 28, 24, 16),
                       child: Text(
-                        'Recent Scores',
+                        'Metrics',
                         style: AppTypography.title2.copyWith(
                           color: ColorTokens.getTextPrimary(isDark),
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                   ),
                   SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final item = data[data.length - 1 - index];
-                          final score = item.score;
-                          final dt = DateTime.fromMillisecondsSinceEpoch(item.createdAt);
-                          final dateStr = '${dt.month}/${dt.day} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-                          
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 10),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                            decoration: BoxDecoration(
-                              color: ColorTokens.getSurface(isDark),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 48,
-                                  height: 48,
-                                  decoration: BoxDecoration(
-                                    color: (score >= 80 ? ColorTokens.success : score >= 60 ? ColorTokens.warning : ColorTokens.error).withOpacity(0.1),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    score >= 80 ? Icons.check_circle_outline : score >= 60 ? Icons.offline_bolt_outlined : Icons.help_outline,
-                                    color: score >= 80 ? ColorTokens.success : score >= 60 ? ColorTokens.warning : ColorTokens.error,
-                                    size: 24,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Recall Attempt',
-                                        style: AppTypography.headline.copyWith(
-                                          color: ColorTokens.getTextPrimary(isDark),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        dateStr,
-                                        style: AppTypography.caption1.copyWith(
-                                          color: ColorTokens.getTextSecondary(isDark),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Text(
-                                  '${score.round()}',
-                                  style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: score >= 80 ? ColorTokens.success : score >= 60 ? ColorTokens.warning : ColorTokens.error,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                        childCount: data.length,
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    sliver: SliverToBoxAdapter(
+                      child: statsAsync.when(
+                        data: (stats) => _buildOverviewGrid(context, stats, isDark),
+                        loading: () => const Center(child: CircularProgressIndicator()),
+                        error: (_, __) => const SizedBox.shrink(),
                       ),
                     ),
                   ),
@@ -213,43 +168,14 @@ class _ReadingHistoryScreenState extends ConsumerState<ReadingHistoryScreen> {
     );
   }
 
-  List<_ChartPoint> _groupData(List<ReadingHistory> data) {
-    if (data.isEmpty) return [];
-
-    final Map<String, List<double>> dateGroups = {};
-    final List<String> dateKeysInOrder = [];
-
-    for (final item in data) {
-      final dt = DateTime.fromMillisecondsSinceEpoch(item.createdAt);
-      
-      String key;
-      if (_timeframe == 'Year') {
-        key = '${dt.year}/${dt.month.toString().padLeft(2, '0')}';
-      } else {
-        key = '${dt.month}/${dt.day}';
-      }
-
-      if (!dateGroups.containsKey(key)) {
-        dateGroups[key] = [];
-        dateKeysInOrder.add(key);
-      }
-      dateGroups[key]!.add(item.score);
-    }
-
-    return dateKeysInOrder.map((key) {
-      final scores = dateGroups[key]!;
-      final avgScore = scores.reduce((a, b) => a + b) / scores.length;
-      return _ChartPoint(label: key, score: avgScore);
-    }).toList();
-  }
-
   Widget _buildTimeframeSelector(bool isDark) {
     return Container(
-      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: ColorTokens.getSurfaceSecondary(isDark),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: ColorTokens.getDivider(isDark), width: 0.5),
       ),
+      padding: const EdgeInsets.all(2),
       child: Row(
         children: ['Week', 'Month', 'Year'].map((time) {
           final isSelected = _timeframe == time;
@@ -257,30 +183,20 @@ class _ReadingHistoryScreenState extends ConsumerState<ReadingHistoryScreen> {
             child: GestureDetector(
               onTap: () => setState(() => _timeframe = time),
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 decoration: BoxDecoration(
-                  color: isSelected
-                      ? ColorTokens.getSurface(isDark)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          )
-                        ]
-                      : null,
+                  color: isSelected ? ColorTokens.getBackground(isDark) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: isSelected ? ColorTokens.getShadow(isDark) : null,
                 ),
+                alignment: Alignment.center,
                 child: Text(
                   time,
-                  textAlign: TextAlign.center,
-                  style: AppTypography.headline.copyWith(
-                    color: isSelected
-                        ? ColorTokens.getTextPrimary(isDark)
-                        : ColorTokens.getTextSecondary(isDark),
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    color: isSelected ? ColorTokens.getTextPrimary(isDark) : ColorTokens.getTextSecondary(isDark),
                   ),
                 ),
               ),
@@ -292,59 +208,65 @@ class _ReadingHistoryScreenState extends ConsumerState<ReadingHistoryScreen> {
   }
 
   Widget _buildOverviewCard(List<_ChartPoint> points, bool isDark) {
-    if (points.isEmpty) return const SizedBox.shrink();
-    
-    final average = points.map((p) => p.score).reduce((a, b) => a + b) / points.length;
-    final color = average >= 80 ? ColorTokens.success : average >= 60 ? ColorTokens.warning : ColorTokens.error;
+    double sum = 0;
+    double maxVal = 0;
+    for (final p in points) {
+      sum += p.score;
+      if (p.score > maxVal) maxVal = p.score;
+    }
+    final avg = points.isNotEmpty ? sum / points.length : 0.0;
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: ColorTokens.getSurface(isDark),
-        borderRadius: BorderRadius.circular(24),
+        color: ColorTokens.getBackground(isDark),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: ColorTokens.getDivider(isDark), width: 1.0),
+        boxShadow: ColorTokens.getShadow(isDark),
       ),
-      child: Column(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          Text(
-            'Average Mastery',
-            style: AppTypography.subheadline.copyWith(
-              color: ColorTokens.getTextSecondary(isDark),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '${average.round()}%',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 48,
-              fontWeight: FontWeight.bold,
-              color: color,
-              letterSpacing: -1,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            average >= 80
-                ? 'Strong understanding across papers'
-                : average >= 60
-                    ? 'Reasonable retention, keep reviewing'
-                    : 'Focus on reviewing key misunderstood parts',
-            textAlign: TextAlign.center,
-            style: AppTypography.caption1.copyWith(
-              color: ColorTokens.getTextSecondary(isDark),
-            ),
-          ),
+          _buildSummaryItem('COMPREHENSION', '${avg.round()}%', isDark),
+          Container(width: 1, height: 40, color: ColorTokens.getDivider(isDark)),
+          _buildSummaryItem('PEAK SCORE', '${maxVal.round()}%', isDark),
         ],
       ),
     );
   }
 
+  Widget _buildSummaryItem(String label, String value, bool isDark) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: AppTypography.caption2.copyWith(
+            color: ColorTokens.getTextTertiary(isDark),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: ColorTokens.getTextPrimary(isDark),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildChartCard(List<_ChartPoint> points, bool isDark) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: ColorTokens.getSurface(isDark),
-        borderRadius: BorderRadius.circular(24),
+        color: ColorTokens.getBackground(isDark),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: ColorTokens.getDivider(isDark), width: 1.0),
+        boxShadow: ColorTokens.getShadow(isDark),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -353,6 +275,7 @@ class _ReadingHistoryScreenState extends ConsumerState<ReadingHistoryScreen> {
             'Comprehension Trend',
             style: AppTypography.headline.copyWith(
               color: ColorTokens.getTextPrimary(isDark),
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 24),
@@ -371,6 +294,121 @@ class _ReadingHistoryScreenState extends ConsumerState<ReadingHistoryScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildOverviewGrid(BuildContext context, Map<String, int> stats, bool isDark) {
+    final settings = ref.read(settingsRepositoryProvider);
+    final hours = (settings.totalReadingTime / 3600).toStringAsFixed(1);
+    
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 16,
+      mainAxisSpacing: 16,
+      childAspectRatio: 1.35,
+      children: [
+        _buildAppleHealthCard('Papers Read', '${stats['papers'] ?? 0}', LucideIcons.bookOpen, isDark),
+        _buildAppleHealthCard('Focus Duration', '${hours}h', LucideIcons.clock, isDark),
+        _buildAppleHealthCard('Words Processed', _formatWords(stats['words'] ?? 0), LucideIcons.type, isDark),
+        _buildAppleHealthCard('Vocabulary Saved', '${stats['vocab'] ?? 0}', LucideIcons.bookmark, isDark),
+        _buildAppleHealthCard('Highlights Made', '${stats['highlights'] ?? 0}', LucideIcons.edit3, isDark),
+        _buildAppleHealthCard('Notes Written', '${stats['notes'] ?? 0}', LucideIcons.fileText, isDark),
+      ],
+    );
+  }
+
+  Widget _buildAppleHealthCard(String label, String value, IconData icon, bool isDark) {
+    return Container(
+      decoration: BoxDecoration(
+        color: ColorTokens.getBackground(isDark),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: ColorTokens.getDivider(isDark), width: 1.0),
+        boxShadow: ColorTokens.getShadow(isDark),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                label,
+                style: AppTypography.caption1.copyWith(
+                  color: ColorTokens.getTextSecondary(isDark),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Icon(icon, size: 16, color: ColorTokens.accent),
+            ],
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: ColorTokens.getTextPrimary(isDark),
+              letterSpacing: -0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatWords(int count) {
+    if (count < 1000) return '$count';
+    if (count < 1000000) return '${(count / 1000).toStringAsFixed(1)}k';
+    return '${(count / 1000000).toStringAsFixed(1)}m';
+  }
+
+  List<_ChartPoint> _groupData(List<ReadingHistory> data) {
+    if (data.isEmpty) return [];
+
+    final Map<String, List<double>> dateGroups = {};
+    final List<String> dateKeysInOrder = [];
+
+    for (final item in data) {
+      final dt = DateTime.fromMillisecondsSinceEpoch(item.createdAt);
+      String key;
+      if (_timeframe == 'Week') {
+        key = DateFormat('E').format(dt);
+      } else if (_timeframe == 'Month') {
+        key = '${dt.month}/${dt.day}';
+      } else {
+        key = DateFormat('MMM').format(dt);
+      }
+
+      if (!dateGroups.containsKey(key)) {
+        dateGroups[key] = [];
+        dateKeysInOrder.add(key);
+      }
+      dateGroups[key]!.add(item.score);
+    }
+
+    final List<_ChartPoint> points = [];
+    for (final key in dateKeysInOrder) {
+      final scores = dateGroups[key]!;
+      final avg = scores.reduce((a, b) => a + b) / scores.length;
+      points.add(_ChartPoint(label: key, score: avg));
+    }
+
+    if (points.length > 8) {
+      final int skip = (points.length / 8).ceil();
+      final List<_ChartPoint> thinned = [];
+      for (int i = 0; i < points.length; i += skip) {
+        thinned.add(points[i]);
+      }
+      if (thinned.last != points.last) {
+        thinned.add(points.last);
+      }
+      return thinned;
+    }
+
+    return points;
   }
 }
 
@@ -445,14 +483,7 @@ class _HistoryCurvePainter extends CustomPainter {
       fillPath.close();
 
       final fillPaint = Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            lineColor.withOpacity(0.12),
-            lineColor.withOpacity(0.00),
-          ],
-        ).createShader(Rect.fromLTRB(0, 0, size.width, size.height))
+        ..color = lineColor.withOpacity(0.04)
         ..style = PaintingStyle.fill;
       canvas.drawPath(fillPath, fillPaint);
     }
@@ -471,8 +502,8 @@ class _HistoryCurvePainter extends CustomPainter {
       final x = i * stepX;
       final y = size.height - (points[i].score / 100 * size.height);
       
-      canvas.drawCircle(Offset(x, y), 5, dotPaint);
-      canvas.drawCircle(Offset(x, y), 2.5, dotOuterPaint);
+      canvas.drawCircle(Offset(x, y), 4, dotPaint);
+      canvas.drawCircle(Offset(x, y), 2, dotOuterPaint);
 
       final labelInterval = (count / 5).ceil();
       if (i % labelInterval == 0 || i == count - 1) {

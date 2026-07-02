@@ -6,72 +6,69 @@ class AppTypography {
 
   static TextStyle get largeTitle => const TextStyle(
         fontFamily: uiFontFamily,
-        fontSize: 34,
+        fontSize: 32,
         fontWeight: FontWeight.bold,
-        letterSpacing: 0.37,
+        letterSpacing: -0.5,
       );
 
   static TextStyle get title1 => const TextStyle(
         fontFamily: uiFontFamily,
-        fontSize: 28,
+        fontSize: 26,
         fontWeight: FontWeight.bold,
-        letterSpacing: 0.36,
+        letterSpacing: -0.4,
       );
 
   static TextStyle get title2 => const TextStyle(
         fontFamily: uiFontFamily,
         fontSize: 22,
         fontWeight: FontWeight.bold,
-        letterSpacing: 0.35,
+        letterSpacing: -0.3,
       );
 
   static TextStyle get title3 => const TextStyle(
         fontFamily: uiFontFamily,
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: FontWeight.w600,
-        letterSpacing: 0.38,
+        letterSpacing: -0.2,
       );
 
   static TextStyle get headline => const TextStyle(
         fontFamily: uiFontFamily,
-        fontSize: 17,
+        fontSize: 16,
         fontWeight: FontWeight.w600,
-        letterSpacing: -0.41,
+        letterSpacing: -0.1,
       );
 
   static TextStyle get subheadline => const TextStyle(
         fontFamily: uiFontFamily,
-        fontSize: 15,
+        fontSize: 14,
         fontWeight: FontWeight.normal,
-        letterSpacing: -0.24,
+        letterSpacing: -0.1,
       );
 
   static TextStyle get body => const TextStyle(
         fontFamily: readerFontFamily,
-        fontSize: 17,
+        fontSize: 18,
         fontWeight: FontWeight.normal,
-        letterSpacing: -0.41,
-        height: 1.6,
+        height: 1.8,
       );
 
   static TextStyle get bodySans => const TextStyle(
         fontFamily: uiFontFamily,
-        fontSize: 17,
+        fontSize: 16,
         fontWeight: FontWeight.normal,
-        letterSpacing: -0.41,
+        letterSpacing: -0.1,
       );
 
   static TextStyle get caption1 => const TextStyle(
         fontFamily: uiFontFamily,
         fontSize: 12,
         fontWeight: FontWeight.normal,
-        letterSpacing: 0.0,
       );
 
   static TextStyle get caption2 => const TextStyle(
         fontFamily: uiFontFamily,
         fontSize: 11,
         fontWeight: FontWeight.normal,
-        letterSpacing: 0.07,
       );
 }

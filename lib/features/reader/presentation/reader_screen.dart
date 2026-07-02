@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../core/app/providers.dart';
 import '../../../core/design_system/color_tokens.dart';
@@ -34,6 +35,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   List<Note> _notes = [];
   bool _isLoading = true;
   late DateTime _enterTime;
+  late final WebViewController _webViewController;
 
   @override
   void initState() {
@@ -76,6 +78,22 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     return '';
   }
 
+  void _scrollToParagraph(int idx) {
+    _webViewController.runJavaScript('''
+      (function() {
+        var paragraphs = document.querySelectorAll('p');
+        if (paragraphs && paragraphs.length > $idx) {
+          var target = paragraphs[$idx];
+          target.scrollIntoView({behavior: 'smooth', block: 'center'});
+          target.classList.add('highlight-paragraph');
+          setTimeout(() => {
+            target.classList.remove('highlight-paragraph');
+          }, 2000);
+        }
+      })();
+    ''');
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -106,6 +124,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           overflow: TextOverflow.ellipsis,
           style: AppTypography.subheadline.copyWith(
             color: ColorTokens.getTextSecondary(isDark),
+            fontWeight: FontWeight.w600,
           ),
         ),
         centerTitle: true,
@@ -126,8 +145,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   Widget _buildWebView(Article article, bool isDark) {
     final htmlContent = _buildHtmlFromArticle(article, _highlights, _notes, isDark);
-    late final WebViewController controller;
-    controller = WebViewController()
+    _webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(isDark ? Colors.black : Colors.white)
       ..addJavaScriptChannel(
@@ -151,7 +169,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
             
             showModalBottomSheet(
               context: context,
-              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
               builder: (ctx) => ProviderScope(
                 parent: ProviderScope.containerOf(context),
                 child: HighlightOptionsSheet(
@@ -174,7 +192,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           if (id != null) {
             showModalBottomSheet(
               context: context,
-              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
               builder: (ctx) => ProviderScope(
                 parent: ProviderScope.containerOf(context),
                 child: ModifyHighlightSheet(
@@ -195,7 +213,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
             showModalBottomSheet(
               context: context,
               isScrollControlled: true,
-              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
               builder: (ctx) => ProviderScope(
                 parent: ProviderScope.containerOf(context),
                 child: NoteEditorSheet(
@@ -224,7 +242,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageFinished: (_) {
-            controller.runJavaScript('''
+            _webViewController.runJavaScript('''
               document.addEventListener('dblclick', function(e) {
                 var sel = window.getSelection().toString().trim();
                 if (sel && /^[a-zA-Z\\'-]+\$/.test(sel)) {
@@ -279,7 +297,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
             if (widget.initialParagraphIdx != null) {
               final idx = widget.initialParagraphIdx!;
-              controller.runJavaScript('''
+              _webViewController.runJavaScript('''
                 (function() {
                   var paragraphs = document.querySelectorAll('p');
                   if (paragraphs && paragraphs.length > $idx) {
@@ -295,20 +313,20 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       )
       ..loadHtmlString(htmlContent);
 
-    return WebViewWidget(controller: controller);
+    return WebViewWidget(controller: _webViewController);
   }
 
   String _buildHtmlFromArticle(Article article, List<Highlight> highlights, List<Note> notes, bool isDark) {
     final stylesheet = '''
       <style>
         body {
-          background-color: ${isDark ? '#000000' : '#FAFADB'};
-          color: ${isDark ? '#F5F5F7' : '#1C1C1E'};
+          background-color: ${isDark ? '#000000' : '#FFFFFF'};
+          color: ${isDark ? '#F5F5F7' : '#111111'};
           font-family: 'Source Serif 4', serif;
           font-size: 18px;
-          line-height: 1.75;
+          line-height: 1.8;
           margin: 0;
-          padding: 24px 16px 120px 16px;
+          padding: 24px 24px 140px 24px;
           user-select: text;
           -webkit-user-select: text;
         }
@@ -334,9 +352,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           margin-bottom: 24px;
           position: relative;
         }
+        blockquote {
+          border-left: 3px solid #666666;
+          margin: 0 0 24px 0;
+          padding-left: 16px;
+          color: #666666;
+        }
         .highlight-paragraph {
-          background-color: rgba(0, 122, 255, 0.1);
-          border-left: 4px solid #007aff;
+          background-color: rgba(79, 107, 255, 0.08);
+          border-left: 3px solid #4f6bff;
           padding: 8px 12px;
           border-radius: 4px;
         }
@@ -347,8 +371,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         .hl-pink { background-color: rgba(233, 30, 99, 0.3); border-bottom: 2px solid #c2185b; }
         
         .para-note-btn {
-          color: #007aff;
-          font-size: 12px;
+          color: #4f6bff;
+          font-size: 11px;
           margin-left: 8px;
           cursor: pointer;
           opacity: 0.5;
@@ -408,9 +432,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     buf.writeln('</head><body><article>');
     buf.writeln('<h1>${article.title}</h1>');
     if (article.author != null) {
-      buf.writeln('<p style="color: #8e8e93; font-size: 14px;">${article.author}</p>');
+      buf.writeln('<p style="color: #666666; font-size: 14px;">${article.author}</p>');
     }
-    buf.writeln('<hr style="border: 0; border-top: 1px solid ${isDark ? '#38383a' : '#e5e5ea'}; margin: 20px 0;">');
+    buf.writeln('<hr style="border: 0; border-top: 1px solid ${isDark ? '#242426' : '#ececec'}; margin: 20px 0;">');
 
     int globalParagraphIdx = 0;
     for (final sec in article.sections) {
@@ -464,7 +488,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (context) {
         return DictionaryLookupSheet(cleanWord: cleanWord, documentId: documentId);
@@ -472,68 +496,254 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     );
   }
 
+  void _showLookupWordManual() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ColorTokens.getBackground(isDark),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text('Look up Word', style: AppTypography.title3.copyWith(color: ColorTokens.getTextPrimary(isDark))),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          style: AppTypography.bodySans.copyWith(color: ColorTokens.getTextPrimary(isDark)),
+          decoration: const InputDecoration(hintText: 'Enter word to search...'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              final w = ctrl.text.trim();
+              Navigator.pop(ctx);
+              if (w.isNotEmpty) {
+                _showWordLookupDialog(context, w, widget.documentId);
+              }
+            },
+            child: const Text('Search'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showHighlightsList() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorTokens.getBackground(isDark),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+              child: Text(
+                'Highlights (${_highlights.length})',
+                style: AppTypography.title3.copyWith(color: ColorTokens.getTextPrimary(isDark), fontWeight: FontWeight.bold),
+              ),
+            ),
+            if (_highlights.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                child: Center(
+                  child: Text('No highlights in this paper.', style: AppTypography.bodySans.copyWith(color: ColorTokens.getTextSecondary(isDark))),
+                ),
+              )
+            else
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: _highlights.length,
+                  itemBuilder: (context, idx) {
+                    final hl = _highlights[idx];
+                    return ListTile(
+                      leading: Container(
+                        width: 12, height: 12,
+                        decoration: BoxDecoration(
+                          color: _hlColorVal(hl.color),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      title: Text(
+                        'Paragraph ${hl.paragraphId + 1}',
+                        style: AppTypography.headline.copyWith(color: ColorTokens.getTextPrimary(isDark)),
+                      ),
+                      subtitle: Text(
+                        'Tap to navigate to highlighted section',
+                        style: AppTypography.caption1.copyWith(color: ColorTokens.getTextSecondary(isDark)),
+                      ),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _scrollToParagraph(hl.paragraphId);
+                      },
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _hlColorVal(String name) {
+    switch (name) {
+      case 'green': return Colors.green;
+      case 'blue': return Colors.blue;
+      case 'pink': return Colors.pink;
+      case 'yellow':
+      default:
+        return Colors.amber;
+    }
+  }
+
+  void _showNotesList() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: ColorTokens.getBackground(isDark),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+              child: Text(
+                'Notes (${_notes.length})',
+                style: AppTypography.title3.copyWith(color: ColorTokens.getTextPrimary(isDark), fontWeight: FontWeight.bold),
+              ),
+            ),
+            if (_notes.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                child: Center(
+                  child: Text('No notes in this paper.', style: AppTypography.bodySans.copyWith(color: ColorTokens.getTextSecondary(isDark))),
+                ),
+              )
+            else
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: _notes.length,
+                  itemBuilder: (context, idx) {
+                    final note = _notes[idx];
+                    return ListTile(
+                      leading: Icon(LucideIcons.fileText, color: ColorTokens.accent, size: 18),
+                      title: Text(
+                        note.content,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.headline.copyWith(color: ColorTokens.getTextPrimary(isDark)),
+                      ),
+                      subtitle: Text(
+                        'Paragraph ${note.paragraphId + 1}',
+                        style: AppTypography.caption1.copyWith(color: ColorTokens.getTextSecondary(isDark)),
+                      ),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _scrollToParagraph(note.paragraphId);
+                      },
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildBottomBar(BuildContext context, Article article, bool isDark) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       decoration: BoxDecoration(
-        color: ColorTokens.getSurface(isDark).withOpacity(0.96),
+        color: ColorTokens.getBackground(isDark).withOpacity(0.96),
         border: Border(
-          top: BorderSide(color: ColorTokens.getDivider(isDark), width: 0.5),
+          top: BorderSide(color: ColorTokens.getDivider(isDark), width: 1.0),
         ),
       ),
       child: SafeArea(
         top: false,
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            if (article.progress > 0) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: ColorTokens.getSurfaceSecondary(isDark),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text('${(article.progress * 100).round()}%',
-                    style: AppTypography.caption1.copyWith(
-                      color: ColorTokens.getTextSecondary(isDark),
-                      fontWeight: FontWeight.w600,
-                    )),
-              ),
-              const SizedBox(width: 12),
-            ],
-            Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  ref.read(settingsRepositoryProvider).incrementTodayPapersRead();
-                  context.push('/recall/${article.id}');
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: BoxDecoration(
-                    color: ColorTokens.accent,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.quiz_outlined, size: 18, color: Colors.white),
-                      const SizedBox(width: 8),
-                      Text('Start Review', style: AppTypography.headline.copyWith(color: Colors.white)),
-                    ],
-                  ),
-                ),
-              ),
+            _BottomBtn(
+              icon: LucideIcons.search,
+              label: 'Look up',
+              isDark: isDark,
+              onTap: _showLookupWordManual,
             ),
-            const SizedBox(width: 10),
-            GestureDetector(
-              onTap: () => context.push('/history'),
-              child: Container(
-                width: 48, height: 48,
-                decoration: BoxDecoration(
-                  color: ColorTokens.getSurfaceSecondary(isDark),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(Icons.history, size: 22,
-                    color: ColorTokens.getTextSecondary(isDark)),
+            _BottomBtn(
+              icon: LucideIcons.edit3,
+              label: 'Highlights',
+              isDark: isDark,
+              onTap: _showHighlightsList,
+            ),
+            _BottomBtn(
+              icon: LucideIcons.fileText,
+              label: 'Notes',
+              isDark: isDark,
+              onTap: _showNotesList,
+            ),
+            _BottomBtn(
+              icon: LucideIcons.fileSpreadsheet,
+              label: 'Review',
+              isAccent: true,
+              isDark: isDark,
+              onTap: () {
+                ref.read(settingsRepositoryProvider).incrementTodayPapersRead();
+                context.push('/recall/${article.id}');
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BottomBtn extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isDark;
+  final VoidCallback onTap;
+  final bool isAccent;
+
+  const _BottomBtn({
+    required this.icon,
+    required this.label,
+    required this.isDark,
+    required this.onTap,
+    this.isAccent = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isAccent ? ColorTokens.accent : ColorTokens.getTextSecondary(isDark);
+    
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 20, color: color),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 10,
+                fontWeight: isAccent ? FontWeight.bold : FontWeight.normal,
+                color: color,
               ),
             ),
           ],

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../core/app/providers.dart';
 import '../../../core/design_system/color_tokens.dart';
@@ -25,14 +26,14 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
   List<String> _answers = [];
   int? _sessionId;
   int _currentIndex = 0;
-  bool _isSubmitting = false;
+  bool _isLoading = true;
   bool _isListening = false;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
     super.initState();
-    _loadDocumentData();
-    ref.read(speechServiceProvider).initialize();
+    _loadDocument();
   }
 
   @override
@@ -44,98 +45,104 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
     super.dispose();
   }
 
-  void _saveDraftAnswer(int index, String value) async {
-    if (_sessionId == null) return;
-    try {
-      final reviewRepo = ref.read(reviewRepositoryProvider);
-      await reviewRepo.updateUserAnswer(
-        sessionId: _sessionId!,
-        paragraphIdx: index,
-        userAnswer: value,
-      );
-    } catch (e) {
-      debugPrint('Failed to save draft answer: $e');
+  Future<void> _loadDocument() async {
+    final repo = ref.read(articleRepositoryProvider);
+    final reviewRepo = ref.read(reviewRepositoryProvider);
+
+    final article = await repo.getArticleById(widget.documentId);
+    if (article != null) {
+      final List<String> list = [];
+      for (final sec in article.sections) {
+        for (final p in sec.paragraphs) {
+          if (p.text.trim().isNotEmpty) {
+            list.add(p.text);
+          }
+        }
+      }
+
+      final draftSession = await reviewRepo.getDraftSession(widget.documentId);
+      List<String> draftAnswers = List.filled(list.length, '');
+      int resumeIndex = 0;
+
+      if (draftSession != null) {
+        _sessionId = draftSession.id;
+        final savedAnswers = await reviewRepo.getAnswersBySession(draftSession.id!);
+        for (final sa in savedAnswers) {
+          if (sa.paragraphIdx >= 0 && sa.paragraphIdx < list.length) {
+            draftAnswers[sa.paragraphIdx] = sa.userAnswer;
+            if (sa.userAnswer.isNotEmpty && sa.paragraphIdx >= resumeIndex) {
+              resumeIndex = sa.paragraphIdx + 1;
+            }
+          }
+        }
+        if (resumeIndex >= list.length) {
+          resumeIndex = list.length - 1;
+        }
+      } else {
+        final sid = await reviewRepo.createSession(widget.documentId);
+        _sessionId = sid;
+        for (int idx = 0; idx < list.length; idx++) {
+          await reviewRepo.insertAnswer(sid, idx, list[idx], '');
+        }
+      }
+
+      setState(() {
+        _paragraphs = list;
+        _answers = draftAnswers;
+        for (final ans in draftAnswers) {
+          _answerControllers.add(TextEditingController(text: ans));
+        }
+        _isLoading = false;
+        _currentIndex = resumeIndex;
+      });
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_pageController.hasClients) {
+          _pageController.jumpToPage(resumeIndex);
+        }
+      });
     }
   }
 
-  Future<void> _loadDocumentData() async {
-    final articleRepo = ref.read(articleRepositoryProvider);
+  Future<void> _saveDraftAnswer(int paragraphIdx, String text) async {
+    if (_sessionId == null) return;
     final reviewRepo = ref.read(reviewRepositoryProvider);
-    
-    final article = await articleRepo.getArticleById(widget.documentId);
-    if (article == null || !mounted) return;
-
-    final List<String> paragraphsList = [];
-    for (final sec in article.sections) {
-      for (final p in sec.paragraphs) {
-        paragraphsList.add(p.text);
-      }
-    }
-
-    if (paragraphsList.isEmpty) {
-      paragraphsList.add('Could not extract text from this document. Try with a text-based document.');
-    }
-
-    int? sessionId;
-    List<String> answers = [];
-
-    try {
-      final draft = await reviewRepo.getLatestDraftSession(widget.documentId);
-      if (draft != null) {
-        sessionId = draft.id;
-        final savedAnswers = await reviewRepo.getAnswersBySession(sessionId!);
-        answers = List.filled(paragraphsList.length, '');
-        for (final sa in savedAnswers) {
-          final idx = sa.paragraphIdx;
-          if (idx >= 0 && idx < paragraphsList.length) {
-            answers[idx] = sa.userAnswer;
-          }
-        }
-      } else {
-        sessionId = await reviewRepo.createSession(widget.documentId);
-        answers = List.filled(paragraphsList.length, '');
-        for (int i = 0; i < paragraphsList.length; i++) {
-          await reviewRepo.insertAnswer(ReviewAnswer(
-            sessionId: sessionId,
-            paragraphIdx: i,
-            paragraphText: paragraphsList[i],
-            userAnswer: '',
-          ));
-        }
-      }
-    } catch (e) {
-      debugPrint('Failed to initialize recall session in DB: $e');
-    }
-
-    if (mounted) {
-      setState(() {
-        _paragraphs = paragraphsList;
-        _answers = answers;
-        _sessionId = sessionId;
-        _answerControllers.clear();
-        _answerControllers.addAll(List.generate(paragraphsList.length, (i) => TextEditingController(text: answers[i])));
-      });
-    }
+    final answers = await reviewRepo.getAnswersBySession(_sessionId!);
+    final matching = answers.firstWhere((a) => a.paragraphIdx == paragraphIdx);
+    await reviewRepo.updateAnswerText(matching.id!, text);
   }
 
   Future<void> _toggleVoice() async {
     final speech = ref.read(speechServiceProvider);
     if (_isListening) {
-      await speech.stop();
+      await speech.stopListening();
       setState(() => _isListening = false);
     } else {
-      setState(() => _isListening = true);
-      await speech.listen(onResult: (words) {
-        setState(() {
-          _answerControllers[_currentIndex].text = words;
-          _answers[_currentIndex] = words;
-        });
-        _saveDraftAnswer(_currentIndex, words);
-      });
+      final ok = await speech.initialize();
+      if (ok) {
+        setState(() => _isListening = true);
+        await speech.startListening(
+          onResult: (text) {
+            setState(() {
+              _answerControllers[_currentIndex].text = text;
+              _answers[_currentIndex] = text;
+            });
+            _saveDraftAnswer(_currentIndex, text);
+          },
+          onError: (_) => setState(() => _isListening = false),
+        );
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Speech recognition is not available.')),
+          );
+        }
+      }
     }
   }
 
   Future<void> _submitAll() async {
+    if (_sessionId == null || _isSubmitting) return;
     setState(() => _isSubmitting = true);
 
     showDialog(
@@ -144,15 +151,13 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
       builder: (ctx) => const Center(
         child: Card(
           child: Padding(
-            padding: EdgeInsets.all(32),
-            child: Column(
+            padding: EdgeInsets.all(24),
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 CircularProgressIndicator(),
-                const SizedBox(height: 16),
-                Text('Analyzing with AI...'),
-                const SizedBox(height: 8),
-                Text('This may take a moment', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                SizedBox(width: 16),
+                Text('AI evaluating comprehension...'),
               ],
             ),
           ),
@@ -162,45 +167,54 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
 
     try {
       final reviewRepo = ref.read(reviewRepositoryProvider);
-      final historyRepo = ref.read(historyRepositoryProvider);
-      final vocabRepo = ref.read(vocabularyRepositoryProvider);
-      final aiRepo = ref.read(aiRepositoryProvider);
+      final aiRepository = ref.read(aiRepositoryProvider);
+      final repo = ref.read(articleRepositoryProvider);
 
+      final article = await repo.getArticleById(widget.documentId);
       final sessionId = _sessionId!;
-      final savedVocab = await vocabRepo.getVocabularyByDocument(widget.documentId);
-      final vocabList = savedVocab.map((v) => v.word).toList();
+
+      final answers = await reviewRepo.getAnswersBySession(sessionId);
+      final List<Map<String, dynamic>> promptList = [];
+      for (final a in answers) {
+        promptList.add({
+          'index': a.paragraphIdx,
+          'paragraph': a.paragraphText,
+          'recall': a.userAnswer,
+        });
+      }
 
       try {
-        final result = await aiRepo.evaluateRecall(
-          paragraphs: _paragraphs,
-          answers: _answers,
-          savedVocabulary: vocabList,
+        final aiResult = await aiRepository.evaluateComprehension(
+          articleTitle: article?.title ?? 'Research Article',
+          paragraphs: promptList,
         );
 
-        final score = (result['overall_understanding'] as num?)?.toDouble() ?? 0.0;
-        final suggestions = jsonEncode({
+        final result = jsonDecode(aiResult);
+        final double overall = (result['overall_score'] as num?)?.toDouble() ?? 0.0;
+
+        await reviewRepo.completeSession(sessionId, overall);
+
+        final String suggestions = jsonEncode({
           'suggestions': result['suggestions'] ?? [],
           'strengths': result['strengths'] ?? [],
           'need_review': result['need_review'] ?? [],
-          'paragraph_score': (result['paragraph_score'] as num?)?.toDouble() ?? 0.0,
-          'concept_score': (result['concept_score'] as num?)?.toDouble() ?? 0.0,
-          'logic_score': (result['logic_score'] as num?)?.toDouble() ?? 0.0,
-          'vocabulary_score': (result['vocabulary_score'] as num?)?.toDouble() ?? 0.0,
+          'paragraph_score': result['paragraph_score'] ?? 0,
+          'concept_score': result['concept_score'] ?? 0,
+          'logic_score': result['logic_score'] ?? 0,
+          'vocabulary_score': result['vocabulary_score'] ?? 0,
           'calculation_process': result['calculation_process'] ?? '',
         });
-        final vocabImpact = jsonEncode(result['vocab_impact'] ?? []);
+        await reviewRepo.updateSessionSuggestions(sessionId, suggestions);
 
-        await reviewRepo.updateSessionScore(
-          sessionId: sessionId,
-          score: score,
-          suggestions: suggestions,
-          vocabImpact: vocabImpact,
-        );
-        await historyRepo.insertScore(widget.documentId, score);
+        final String vocabImpact = jsonEncode(result['vocab_impact'] ?? []);
+        await reviewRepo.updateSessionVocabImpact(sessionId, vocabImpact);
+
+        final historyRepo = ref.read(historyRepositoryProvider);
+        await historyRepo.insertScore(widget.documentId, overall);
 
         final misunderstood = result['misunderstood_paragraphs'] as List<dynamic>? ?? [];
-        final answers = await reviewRepo.getAnswersBySession(sessionId);
-        for (final answer in answers) {
+        final completedAnswers = await reviewRepo.getAnswersBySession(sessionId);
+        for (final answer in completedAnswers) {
           final idx = answer.paragraphIdx;
           final misItem = misunderstood.firstWhere(
             (m) => (m['index'] as int? ?? -1) == idx,
@@ -233,8 +247,8 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
             ),
           );
         }
-        final answers = await reviewRepo.getAnswersBySession(sessionId);
-        for (final answer in answers) {
+        final completedAnswers = await reviewRepo.getAnswersBySession(sessionId);
+        for (final answer in completedAnswers) {
           await reviewRepo.updateAnswerFeedback(
             answer.id!,
             100.0,
@@ -245,12 +259,12 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
       }
 
       if (mounted) {
-        Navigator.pop(context); // Close loading dialog
+        Navigator.pop(context);
         context.pushReplacement('/review/$sessionId');
       }
     } catch (e) {
       if (mounted) {
-        Navigator.pop(context); // Close loading dialog
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
@@ -276,6 +290,7 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
           '${_currentIndex + 1} / ${_paragraphs.length}',
           style: AppTypography.subheadline.copyWith(
             color: ColorTokens.getTextSecondary(isDark),
+            fontWeight: FontWeight.bold,
           ),
         ),
         centerTitle: true,
@@ -291,12 +306,12 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
                 value: (_currentIndex + 1) / _paragraphs.length,
                 backgroundColor: ColorTokens.getDivider(isDark),
                 valueColor: const AlwaysStoppedAnimation(ColorTokens.accent),
-                minHeight: 3,
+                minHeight: 4,
               ),
             ),
           ),
@@ -317,8 +332,10 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: ColorTokens.getSurface(isDark),
+                        color: ColorTokens.getBackground(isDark),
                         borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: ColorTokens.getDivider(isDark), width: 1.0),
+                        boxShadow: ColorTokens.getShadow(isDark),
                       ),
                       child: Text(
                         _paragraphs[i],
@@ -332,13 +349,14 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
                       'What does this paragraph mean?',
                       style: AppTypography.title3.copyWith(
                         color: ColorTokens.getTextPrimary(isDark),
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     Text(
                       'Describe what the author is expressing here.',
                       style: AppTypography.subheadline.copyWith(
-                        color: ColorTokens.getTextTertiary(isDark),
+                        color: ColorTokens.getTextSecondary(isDark),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -348,9 +366,8 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
                       style: AppTypography.bodySans.copyWith(
                         color: ColorTokens.getTextPrimary(isDark),
                       ),
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         hintText: 'Write your recall here...',
-                        fillColor: ColorTokens.getSurfaceSecondary(isDark),
                       ),
                       onChanged: (v) {
                         _answers[i] = v;
@@ -361,17 +378,18 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
                     GestureDetector(
                       onTap: _toggleVoice,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         decoration: BoxDecoration(
                           color: ColorTokens.getSurfaceSecondary(isDark),
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: ColorTokens.getDivider(isDark), width: 0.5),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              _isListening ? Icons.mic : Icons.mic_none,
-                              size: 20,
+                              _isListening ? LucideIcons.mic : LucideIcons.mic,
+                              size: 16,
                               color: _isListening ? ColorTokens.error : ColorTokens.getTextSecondary(isDark),
                             ),
                             const SizedBox(width: 8),
@@ -398,56 +416,32 @@ class _RecallScreenState extends ConsumerState<RecallScreen> {
 
   Widget _buildNavigationRow(bool isDark) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: BoxDecoration(
-        color: ColorTokens.getSurface(isDark),
-        border: Border(top: BorderSide(color: ColorTokens.getDivider(isDark), width: 0.5)),
+        color: ColorTokens.getBackground(isDark),
+        border: Border(top: BorderSide(color: ColorTokens.getDivider(isDark), width: 1.0)),
       ),
       child: SafeArea(
         top: false,
         child: Row(
           children: [
             Expanded(
-              child: GestureDetector(
-                onTap: _currentIndex > 0
-                    ? () => _pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeOut)
+              child: OutlinedButton.icon(
+                icon: const Icon(LucideIcons.chevronLeft, size: 16),
+                label: const Text('Previous'),
+                onPressed: _currentIndex > 0
+                    ? () => _pageController.previousPage(duration: const Duration(milliseconds: 180), curve: Curves.easeOut)
                     : null,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: BoxDecoration(
-                    color: _currentIndex > 0 ? ColorTokens.getSurfaceSecondary(isDark) : ColorTokens.getSurfaceSecondary(isDark).withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Center(
-                    child: Text(
-                      'Previous',
-                      style: AppTypography.headline.copyWith(
-                        color: _currentIndex > 0 ? ColorTokens.getTextPrimary(isDark) : ColorTokens.getTextTertiary(isDark),
-                      ),
-                    ),
-                  ),
-                ),
               ),
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: GestureDetector(
-                onTap: _currentIndex < _paragraphs.length - 1
-                    ? () => _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeOut)
+              child: FilledButton.icon(
+                icon: Icon(_currentIndex < _paragraphs.length - 1 ? LucideIcons.chevronRight : LucideIcons.check, size: 16),
+                label: Text(_currentIndex < _paragraphs.length - 1 ? 'Next' : 'Finish'),
+                onPressed: _currentIndex < _paragraphs.length - 1
+                    ? () => _pageController.nextPage(duration: const Duration(milliseconds: 180), curve: Curves.easeOut)
                     : _submitAll,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: BoxDecoration(
-                    color: ColorTokens.accent,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Center(
-                    child: Text(
-                      _currentIndex < _paragraphs.length - 1 ? 'Next' : 'Done',
-                      style: AppTypography.headline.copyWith(color: Colors.white),
-                    ),
-                  ),
-                ),
               ),
             ),
           ],

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:path/path.dart' as p;
 import 'package:intl/intl.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../core/app/providers.dart';
 import '../../../core/design_system/color_tokens.dart';
@@ -52,54 +53,47 @@ class LibraryScreen extends ConsumerWidget {
           slivers: [
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _greeting(),
-                                style: AppTypography.caption1.copyWith(
-                                  color: ColorTokens.getTextSecondary(isDark),
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'PaperFlow',
-                                style: AppTypography.largeTitle.copyWith(
-                                  color: ColorTokens.getTextPrimary(isDark),
-                                ),
-                              ),
-                            ],
+                        Text(
+                          _greeting(),
+                          style: AppTypography.largeTitle.copyWith(
+                            color: ColorTokens.getTextPrimary(isDark),
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        _IconButton(
-                          icon: Icons.search,
-                          isDark: isDark,
-                          onTap: () => _showSearch(context, ref),
-                        ),
-                        const SizedBox(width: 8),
-                        _IconButton(
-                          icon: Icons.book_outlined,
-                          isDark: isDark,
-                          onTap: () => context.push('/vocabulary'),
-                        ),
-                        const SizedBox(width: 8),
-                        _IconButton(
-                          icon: Icons.settings_outlined,
-                          isDark: isDark,
-                          onTap: () => context.push('/settings').then((_) {
-                            ref.invalidate(statsProvider);
-                          }),
+                        Row(
+                          children: [
+                            _HeaderButton(
+                              icon: LucideIcons.search,
+                              isDark: isDark,
+                              onTap: () => _showSearch(context, ref),
+                            ),
+                            const SizedBox(width: 12),
+                            _HeaderButton(
+                              icon: LucideIcons.bookOpen,
+                              isDark: isDark,
+                              onTap: () => context.push('/vocabulary'),
+                            ),
+                            const SizedBox(width: 12),
+                            _HeaderButton(
+                              icon: LucideIcons.settings,
+                              isDark: isDark,
+                              onTap: () => context.push('/settings').then((_) {
+                                ref.invalidate(statsProvider);
+                              }),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),
@@ -149,16 +143,17 @@ class LibraryScreen extends ConsumerWidget {
                       error: (_, __) => const SizedBox.shrink(),
                     ),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+                      padding: const EdgeInsets.fromLTRB(24, 28, 24, 16),
                       child: Text(
                         'Recent Papers',
                         style: AppTypography.title2.copyWith(
                           color: ColorTokens.getTextPrimary(isDark),
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                     ...docs.map((doc) => Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                           child: DocumentCard(document: doc),
                         )),
                     const SizedBox(height: 100),
@@ -169,17 +164,22 @@ class LibraryScreen extends ConsumerWidget {
           ],
         ),
       ),
-      floatingActionButton: _ImportButton(
-        onTap: () => _importDocument(context, ref),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _importDocument(context, ref),
+        backgroundColor: ColorTokens.accent,
+        foregroundColor: Colors.white,
+        shape: const CircleBorder(),
+        elevation: 2,
+        child: const Icon(LucideIcons.plus, size: 24),
       ),
     );
   }
 
   String _greeting() {
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
+    if (hour < 12) return 'Good morning.';
+    if (hour < 17) return 'Good afternoon.';
+    return 'Good evening.';
   }
 
   Widget _buildDailyGoalProgress(BuildContext context, dynamic settings, bool isDark) {
@@ -206,9 +206,10 @@ class LibraryScreen extends ConsumerWidget {
       margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: ColorTokens.getSurface(isDark),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: ColorTokens.getDivider(isDark), width: 0.5),
+        color: ColorTokens.getBackground(isDark),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: ColorTokens.getDivider(isDark), width: 1.0),
+        boxShadow: ColorTokens.getShadow(isDark),
       ),
       child: Row(
         children: [
@@ -217,7 +218,7 @@ class LibraryScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "Today's Goal Progress",
+                  "Today's Progress",
                   style: AppTypography.caption2.copyWith(
                     color: ColorTokens.getTextTertiary(isDark),
                     fontWeight: FontWeight.bold,
@@ -228,6 +229,7 @@ class LibraryScreen extends ConsumerWidget {
                   label,
                   style: AppTypography.title3.copyWith(
                     color: ColorTokens.getTextPrimary(isDark),
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -241,21 +243,21 @@ class LibraryScreen extends ConsumerWidget {
             ),
           ),
           SizedBox(
-            width: 54,
-            height: 54,
+            width: 50,
+            height: 50,
             child: Stack(
               alignment: Alignment.center,
               children: [
                 CircularProgressIndicator(
                   value: progress,
-                  strokeWidth: 6,
-                  backgroundColor: ColorTokens.getDivider(isDark).withOpacity(0.5),
+                  strokeWidth: 5,
+                  backgroundColor: ColorTokens.getDivider(isDark),
                   valueColor: const AlwaysStoppedAnimation(ColorTokens.accent),
                 ),
                 Icon(
-                  Icons.offline_bolt,
+                  LucideIcons.zap,
                   color: progress >= 1.0 ? ColorTokens.success : ColorTokens.accent,
-                  size: 20,
+                  size: 16,
                 ),
               ],
             ),
@@ -281,9 +283,10 @@ class LibraryScreen extends ConsumerWidget {
       margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: ColorTokens.getSurface(isDark),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: ColorTokens.getDivider(isDark), width: 0.5),
+        color: ColorTokens.getBackground(isDark),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: ColorTokens.getDivider(isDark), width: 1.0),
+        boxShadow: ColorTokens.getShadow(isDark),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,24 +295,24 @@ class LibraryScreen extends ConsumerWidget {
             'Reading Statistics',
             style: AppTypography.headline.copyWith(
               color: ColorTokens.getTextPrimary(isDark),
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           GridView.count(
             crossAxisCount: 3,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             crossAxisSpacing: 12,
-            mainAxisSpacing: 16,
+            mainAxisSpacing: 20,
             childAspectRatio: 1.1,
             children: [
-              _buildStatItem('Papers', '$totalPapers', Icons.book_outlined, isDark),
-              _buildStatItem('Duration', '${hours}h', Icons.timer_outlined, isDark),
-              _buildStatItem('Words', _formatWords(totalWords), Icons.text_fields_outlined, isDark),
-              _buildStatItem('Vocab', '$totalSavedVocab', Icons.bookmark_outline, isDark),
-              _buildStatItem('Highlights', '$totalHighlights', Icons.draw_outlined, isDark),
-              _buildStatItem('Notes', '$totalNotes', Icons.notes_outlined, isDark),
+              _buildStatItem('Papers', '$totalPapers', LucideIcons.book, isDark),
+              _buildStatItem('Duration', '${hours}h', LucideIcons.clock, isDark),
+              _buildStatItem('Words', _formatWords(totalWords), LucideIcons.type, isDark),
+              _buildStatItem('Vocab', '$totalSavedVocab', LucideIcons.bookmark, isDark),
+              _buildStatItem('Highlights', '$totalHighlights', LucideIcons.edit3, isDark),
+              _buildStatItem('Notes', '$totalNotes', LucideIcons.fileText, isDark),
             ],
           ),
         ],
@@ -321,8 +324,8 @@ class LibraryScreen extends ConsumerWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(icon, size: 20, color: ColorTokens.getTextTertiary(isDark)),
-        const SizedBox(height: 6),
+        Icon(icon, size: 18, color: ColorTokens.getTextTertiary(isDark)),
+        const SizedBox(height: 8),
         Text(
           value,
           style: TextStyle(
@@ -355,16 +358,17 @@ class LibraryScreen extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 12),
           child: Text(
             'Continue Reading',
             style: AppTypography.title2.copyWith(
               color: ColorTokens.getTextPrimary(isDark),
+              fontWeight: FontWeight.bold,
             ),
           ),
         ),
         SizedBox(
-          height: 190,
+          height: 180,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -376,80 +380,70 @@ class LibraryScreen extends ConsumerWidget {
                 child: GestureDetector(
                   onTap: () => context.push('/reader/${doc.id}'),
                   child: Container(
-                    width: 170,
+                    width: 220,
                     decoration: BoxDecoration(
-                      color: ColorTokens.getSurface(isDark),
+                      color: ColorTokens.getBackground(isDark),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: ColorTokens.getDivider(isDark), width: 0.5),
+                      border: Border.all(color: ColorTokens.getDivider(isDark), width: 1.0),
+                      boxShadow: ColorTokens.getShadow(isDark),
                     ),
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Cover Card
-                        Expanded(
-                          child: Container(
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: isDark
-                                    ? [Colors.blueGrey.shade900, Colors.grey.shade900]
-                                    : [Colors.grey.shade200, Colors.blueGrey.shade50],
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              doc.fileType.toUpperCase(),
+                              style: AppTypography.caption2.copyWith(
+                                color: ColorTokens.accent,
+                                fontWeight: FontWeight.bold,
                               ),
-                              borderRadius: BorderRadius.circular(12),
                             ),
-                            padding: const EdgeInsets.all(8),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            const SizedBox(height: 8),
+                            Text(
+                              doc.title,
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.headline.copyWith(
+                                color: ColorTokens.getTextPrimary(isDark),
+                                fontWeight: FontWeight.w600,
+                                height: 1.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  doc.fileType.toUpperCase(),
+                                  _formatDate(doc.lastReadTime ?? doc.importDate),
                                   style: AppTypography.caption2.copyWith(
-                                    color: ColorTokens.accent,
-                                    fontWeight: FontWeight.bold,
+                                    color: ColorTokens.getTextTertiary(isDark),
                                   ),
                                 ),
                                 Text(
-                                  doc.title,
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: AppTypography.caption1.copyWith(
-                                    color: ColorTokens.getTextPrimary(isDark),
-                                    fontWeight: FontWeight.w600,
+                                  '${(doc.progress * 100).round()}%',
+                                  style: AppTypography.caption2.copyWith(
+                                    color: ColorTokens.getTextSecondary(isDark),
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ],
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _formatDate(doc.lastReadTime ?? doc.importDate),
-                          style: AppTypography.caption2.copyWith(
-                            color: ColorTokens.getTextTertiary(isDark),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(2),
-                                child: LinearProgressIndicator(
-                                  value: doc.progress,
-                                  backgroundColor: ColorTokens.getDivider(isDark),
-                                  valueColor: const AlwaysStoppedAnimation(ColorTokens.accent),
-                                  minHeight: 3,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${(doc.progress * 100).round()}%',
-                              style: AppTypography.caption2.copyWith(
-                                color: ColorTokens.getTextSecondary(isDark),
-                                fontWeight: FontWeight.bold,
+                            const SizedBox(height: 6),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(2),
+                              child: LinearProgressIndicator(
+                                value: doc.progress,
+                                backgroundColor: ColorTokens.getDivider(isDark),
+                                valueColor: const AlwaysStoppedAnimation(ColorTokens.accent),
+                                minHeight: 3,
                               ),
                             ),
                           ],
@@ -533,11 +527,12 @@ class LibraryScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: ColorTokens.getBackground(Theme.of(context).brightness == Brightness.dark),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text('Search'),
         content: TextField(
           autofocus: true,
-          decoration: const InputDecoration(hintText: 'Search by title or author...'),
+          decoration: const InputDecoration(hintText: 'Search by title...'),
           onChanged: (v) => ref.read(searchQueryProvider.notifier).state = v,
         ),
         actions: [
@@ -558,12 +553,12 @@ class LibraryScreen extends ConsumerWidget {
   }
 }
 
-class _IconButton extends StatelessWidget {
+class _HeaderButton extends StatelessWidget {
   final IconData icon;
   final bool isDark;
   final VoidCallback onTap;
 
-  const _IconButton({
+  const _HeaderButton({
     required this.icon,
     required this.isDark,
     required this.onTap,
@@ -574,54 +569,17 @@ class _IconButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 40,
-        height: 40,
+        width: 38,
+        height: 38,
         decoration: BoxDecoration(
           color: ColorTokens.getSurfaceSecondary(isDark),
           borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: ColorTokens.getDivider(isDark), width: 0.5),
         ),
         child: Icon(
           icon,
-          size: 20,
+          size: 18,
           color: ColorTokens.getTextSecondary(isDark),
-        ),
-      ),
-    );
-  }
-}
-
-class _ImportButton extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _ImportButton({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-        decoration: BoxDecoration(
-          color: ColorTokens.accent,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: ColorTokens.accent.withOpacity(0.25),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.add, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              'Import Paper',
-              style: AppTypography.headline.copyWith(color: Colors.white),
-            ),
-          ],
         ),
       ),
     );
@@ -642,35 +600,30 @@ class _EmptyState extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 100,
-              height: 100,
+              width: 80,
+              height: 80,
               decoration: BoxDecoration(
                 color: ColorTokens.getSurfaceSecondary(isDark),
-                borderRadius: BorderRadius.circular(28),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: ColorTokens.getDivider(isDark), width: 0.5),
               ),
               child: Icon(
-                Icons.menu_book_outlined,
-                size: 48,
+                LucideIcons.bookOpen,
+                size: 32,
                 color: ColorTokens.getTextTertiary(isDark),
               ),
             ),
             const SizedBox(height: 24),
             Text(
-              'Start Building',
-              style: AppTypography.title1.copyWith(
+              'No papers yet',
+              style: AppTypography.title2.copyWith(
                 color: ColorTokens.getTextPrimary(isDark),
+                fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
             Text(
-              'Your Research Library',
-              style: AppTypography.title1.copyWith(
-                color: ColorTokens.getTextSecondary(isDark),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Import your first paper and begin\nyour active reading journey.',
+              'Import your research papers and start active reading with PaperFlow.',
               textAlign: TextAlign.center,
               style: AppTypography.subheadline.copyWith(
                 color: ColorTokens.getTextTertiary(isDark),

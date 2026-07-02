@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../core/app/providers.dart';
 import '../../../core/design_system/color_tokens.dart';
@@ -44,127 +45,149 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       appBar: AppBar(
         title: Text('Settings', style: AppTypography.title2.copyWith(
           color: ColorTokens.getTextPrimary(isDark),
+          fontWeight: FontWeight.bold,
         )),
+        centerTitle: true,
       ),
       body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         children: [
           _SectionHeader(label: 'Appearance', isDark: isDark),
-          _SettingTile(
-            icon: Icons.brightness_6,
-            label: 'Theme',
-            value: _themeName(settings.themeMode),
+          _GroupContainer(
             isDark: isDark,
-            onTap: () => _pickTheme(settings),
-          ),
-          _SettingSlider(
-            icon: Icons.text_fields,
-            label: 'Font Size',
-            value: settings.fontSize,
-            min: 12, max: 28, divisions: 16,
-            suffix: 'px',
-            isDark: isDark,
-            onChanged: (v) { settings.setFontSize(v); ref.invalidate(settingsRepositoryProvider); },
-          ),
-          _SettingSlider(
-            icon: Icons.width_normal,
-            label: 'Reading Width',
-            value: settings.readingWidth,
-            min: 400, max: 900, divisions: 10,
-            suffix: 'px',
-            isDark: isDark,
-            onChanged: (v) { settings.setReadingWidth(v); ref.invalidate(settingsRepositoryProvider); },
-          ),
-          _SettingSlider(
-            icon: Icons.format_line_spacing,
-            label: 'Line Height',
-            value: settings.lineHeight,
-            min: 1.0, max: 2.5, divisions: 15,
-            suffix: '',
-            isDark: isDark,
-            onChanged: (v) { settings.setLineHeight(v); ref.invalidate(settingsRepositoryProvider); },
-          ),
-          const SizedBox(height: 24),
-          _SectionHeader(label: 'Reading Goal', isDark: isDark),
-          _SettingSwitchTile(
-            icon: Icons.track_changes,
-            label: 'Enable Daily Goal',
-            value: settings.readingGoalEnabled,
-            isDark: isDark,
-            onChanged: (v) {
-              settings.setReadingGoalEnabled(v);
-              ref.invalidate(settingsRepositoryProvider);
-            },
-          ),
-          if (settings.readingGoalEnabled) ...[
-            _SettingTile(
-              icon: Icons.rule,
-              label: 'Goal Type',
-              value: settings.readingGoalType == 'time' ? 'Reading Duration' : 'Papers Read',
-              isDark: isDark,
-              onTap: () => _pickGoalType(settings),
-            ),
-            _SettingSlider(
-              icon: settings.readingGoalType == 'time' ? Icons.timer : Icons.menu_book,
-              label: settings.readingGoalType == 'time' ? 'Duration Goal' : 'Papers Goal',
-              value: settings.readingGoalValue.toDouble(),
-              min: settings.readingGoalType == 'time' ? 5 : 1,
-              max: settings.readingGoalType == 'time' ? 120 : 10,
-              divisions: settings.readingGoalType == 'time' ? 23 : 9,
-              suffix: settings.readingGoalType == 'time' ? ' mins' : ' papers',
-              isDark: isDark,
-              onChanged: (v) {
-                settings.setReadingGoalValue(v.round());
-                ref.invalidate(settingsRepositoryProvider);
-              },
-            ),
-          ],
-          const SizedBox(height: 24),
-          _SectionHeader(label: 'Language', isDark: isDark),
-          _SettingTile(
-            icon: Icons.language,
-            label: 'Language',
-            value: settings.locale == 'zh' ? '中文' : 'English',
-            isDark: isDark,
-            onTap: () => _pickLocale(settings),
+            children: [
+              _SettingTile(
+                icon: LucideIcons.sun,
+                label: 'Theme',
+                value: _themeName(settings.themeMode),
+                isDark: isDark,
+                onTap: () => _pickTheme(settings),
+              ),
+              _SettingSlider(
+                icon: LucideIcons.type,
+                label: 'Font Size',
+                value: settings.fontSize,
+                min: 12, max: 28, divisions: 16,
+                suffix: 'px',
+                isDark: isDark,
+                onChanged: (v) { settings.setFontSize(v); ref.invalidate(settingsRepositoryProvider); },
+              ),
+              _SettingSlider(
+                icon: LucideIcons.alignLeft,
+                label: 'Reading Width',
+                value: settings.readingWidth,
+                min: 400, max: 900, divisions: 10,
+                suffix: 'px',
+                isDark: isDark,
+                onChanged: (v) { settings.setReadingWidth(v); ref.invalidate(settingsRepositoryProvider); },
+              ),
+              _SettingSlider(
+                icon: LucideIcons.stretchVertical,
+                label: 'Line Height',
+                value: settings.lineHeight,
+                min: 1.0, max: 2.5, divisions: 15,
+                suffix: '',
+                isDark: isDark,
+                onChanged: (v) { settings.setLineHeight(v); ref.invalidate(settingsRepositoryProvider); },
+              ),
+            ],
           ),
           const SizedBox(height: 24),
-          _SectionHeader(label: 'AI Model', isDark: isDark),
-          _SettingTile(
-            icon: Icons.link,
-            label: 'Backend URL',
-            value: settings.backendUrl,
+          _SectionHeader(label: 'Daily Goals', isDark: isDark),
+          _GroupContainer(
             isDark: isDark,
-            onTap: () => _editField('Backend URL', _backendUrlController, (v) {
-              settings.setBackendUrl(v); ref.invalidate(settingsRepositoryProvider);
-            }),
+            children: [
+              _SettingSwitchTile(
+                icon: LucideIcons.target,
+                label: 'Enable Daily Goal',
+                value: settings.readingGoalEnabled,
+                isDark: isDark,
+                onChanged: (v) {
+                  settings.setReadingGoalEnabled(v);
+                  ref.invalidate(settingsRepositoryProvider);
+                },
+              ),
+              if (settings.readingGoalEnabled) ...[
+                _SettingTile(
+                  icon: LucideIcons.sliders,
+                  label: 'Goal Type',
+                  value: settings.readingGoalType == 'time' ? 'Reading Duration' : 'Papers Read',
+                  isDark: isDark,
+                  onTap: () => _pickGoalType(settings),
+                ),
+                _SettingSlider(
+                  icon: settings.readingGoalType == 'time' ? LucideIcons.clock : LucideIcons.bookOpen,
+                  label: settings.readingGoalType == 'time' ? 'Duration Goal' : 'Papers Goal',
+                  value: settings.readingGoalValue.toDouble(),
+                  min: settings.readingGoalType == 'time' ? 5 : 1,
+                  max: settings.readingGoalType == 'time' ? 120 : 10,
+                  divisions: settings.readingGoalType == 'time' ? 23 : 9,
+                  suffix: settings.readingGoalType == 'time' ? ' mins' : ' papers',
+                  isDark: isDark,
+                  onChanged: (v) {
+                    settings.setReadingGoalValue(v.round());
+                    ref.invalidate(settingsRepositoryProvider);
+                  },
+                ),
+              ],
+            ],
           ),
-          _SettingTile(
-            icon: Icons.key,
-            label: 'Access Key',
-            value: settings.accessKey.isEmpty ? 'Not set' : '••••••••',
+          const SizedBox(height: 24),
+          _SectionHeader(label: 'Localization', isDark: isDark),
+          _GroupContainer(
             isDark: isDark,
-            onTap: () => _editField('Access Key', _accessKeyController, (v) {
-              settings.setAccessKey(v); ref.invalidate(settingsRepositoryProvider);
-            }),
+            children: [
+              _SettingTile(
+                icon: LucideIcons.globe,
+                label: 'Language',
+                value: settings.locale == 'zh' ? '中文' : 'English',
+                isDark: isDark,
+                onTap: () => _pickLocale(settings),
+              ),
+            ],
           ),
-          _SettingTile(
-            icon: Icons.smart_toy,
-            label: 'Model',
-            value: settings.modelName,
+          const SizedBox(height: 24),
+          _SectionHeader(label: 'AI & Connection', isDark: isDark),
+          _GroupContainer(
             isDark: isDark,
-            onTap: () => _editField('Model Name', _modelController, (v) {
-              settings.setModelName(v); ref.invalidate(settingsRepositoryProvider);
-            }),
+            children: [
+              _SettingTile(
+                icon: LucideIcons.link,
+                label: 'Backend URL',
+                value: settings.backendUrl,
+                isDark: isDark,
+                onTap: () => _editField('Backend URL', _backendUrlController, (v) {
+                  settings.setBackendUrl(v); ref.invalidate(settingsRepositoryProvider);
+                }),
+              ),
+              _SettingTile(
+                icon: LucideIcons.key,
+                label: 'Access Key',
+                value: settings.accessKey.isEmpty ? 'Not set' : '••••••••',
+                isDark: isDark,
+                onTap: () => _editField('Access Key', _accessKeyController, (v) {
+                  settings.setAccessKey(v); ref.invalidate(settingsRepositoryProvider);
+                }),
+              ),
+              _SettingTile(
+                icon: LucideIcons.cpu,
+                label: 'Model',
+                value: settings.modelName,
+                isDark: isDark,
+                onTap: () => _editField('Model Name', _modelController, (v) {
+                  settings.setModelName(v); ref.invalidate(settingsRepositoryProvider);
+                }),
+              ),
+              _SettingTile(
+                icon: LucideIcons.activity,
+                label: 'Test Connection',
+                value: '',
+                isDark: isDark,
+                onTap: () => _testConnection(),
+              ),
+            ],
           ),
-          _SettingTile(
-            icon: Icons.wifi_tethering,
-            label: 'Test Connection',
-            value: '',
-            isDark: isDark,
-            onTap: () => _testConnection(),
-          ),
-          const SizedBox(height: 40),
+          const SizedBox(height: 48),
         ],
       ),
     );
@@ -176,8 +199,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
-      backgroundColor: ColorTokens.getSurface(isDark),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      backgroundColor: ColorTokens.getBackground(isDark),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (ctx) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           for (final entry in {'system': 'System', 'light': 'Light', 'dark': 'Dark'}.entries)
@@ -197,8 +220,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
-      backgroundColor: ColorTokens.getSurface(isDark),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      backgroundColor: ColorTokens.getBackground(isDark),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (ctx) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           ListTile(
@@ -221,8 +244,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
-      backgroundColor: ColorTokens.getSurface(isDark),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      backgroundColor: ColorTokens.getBackground(isDark),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (ctx) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           ListTile(
@@ -252,14 +275,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   void _editField(String label, TextEditingController ctrl, ValueChanged<String> onSave) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       builder: (ctx) => ProviderScope(
         parent: ProviderScope.containerOf(context),
         child: AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text(label, style: AppTypography.title3),
-          content: TextField(controller: ctrl, autofocus: true, decoration: InputDecoration(hintText: label)),
+          backgroundColor: ColorTokens.getBackground(isDark),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: Text(label, style: AppTypography.title3.copyWith(color: ColorTokens.getTextPrimary(isDark))),
+          content: TextField(
+            controller: ctrl,
+            autofocus: true,
+            style: AppTypography.bodySans.copyWith(color: ColorTokens.getTextPrimary(isDark)),
+            decoration: InputDecoration(hintText: label),
+          ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
             TextButton(onPressed: () { onSave(ctrl.text); Navigator.pop(ctx); }, child: const Text('Save')),
@@ -299,10 +329,33 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12, top: 8),
+      padding: const EdgeInsets.only(bottom: 8, left: 16),
       child: Text(label.toUpperCase(), style: AppTypography.caption2.copyWith(
         color: ColorTokens.getTextTertiary(isDark),
+        fontWeight: FontWeight.bold,
       )),
+    );
+  }
+}
+
+class _GroupContainer extends StatelessWidget {
+  final List<Widget> children;
+  final bool isDark;
+
+  const _GroupContainer({required this.children, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: ColorTokens.getBackground(isDark),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: ColorTokens.getDivider(isDark), width: 1.0),
+        boxShadow: ColorTokens.getShadow(isDark),
+      ),
+      child: Column(
+        children: children,
+      ),
     );
   }
 }
@@ -328,14 +381,12 @@ class _SettingTile extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        margin: const EdgeInsets.only(bottom: 2),
         decoration: BoxDecoration(
-          color: ColorTokens.getSurface(isDark),
-          borderRadius: BorderRadius.circular(16),
+          border: Border(bottom: BorderSide(color: ColorTokens.getDivider(isDark), width: 0.5)),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 22, color: ColorTokens.getTextSecondary(isDark)),
+            Icon(icon, size: 20, color: ColorTokens.getTextSecondary(isDark)),
             const SizedBox(width: 14),
             Expanded(child: Text(label, style: AppTypography.bodySans.copyWith(
               color: ColorTokens.getTextPrimary(isDark),
@@ -348,8 +399,8 @@ class _SettingTile extends StatelessWidget {
                       color: ColorTokens.getTextTertiary(isDark),
                     )),
               ),
-            const SizedBox(width: 4),
-            Icon(Icons.chevron_right, size: 18,
+            const SizedBox(width: 6),
+            Icon(LucideIcons.chevronRight, size: 16,
                 color: ColorTokens.getTextTertiary(isDark)),
           ],
         ),
@@ -376,15 +427,13 @@ class _SettingSwitchTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      margin: const EdgeInsets.only(bottom: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: ColorTokens.getSurface(isDark),
-        borderRadius: BorderRadius.circular(16),
+        border: Border(bottom: BorderSide(color: ColorTokens.getDivider(isDark), width: 0.5)),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 22, color: ColorTokens.getTextSecondary(isDark)),
+          Icon(icon, size: 20, color: ColorTokens.getTextSecondary(isDark)),
           const SizedBox(width: 14),
           Expanded(child: Text(label, style: AppTypography.bodySans.copyWith(
             color: ColorTokens.getTextPrimary(isDark),
@@ -427,16 +476,14 @@ class _SettingSlider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(bottom: 2),
       decoration: BoxDecoration(
-        color: ColorTokens.getSurface(isDark),
-        borderRadius: BorderRadius.circular(16),
+        border: Border(bottom: BorderSide(color: ColorTokens.getDivider(isDark), width: 0.5)),
       ),
       child: Column(
         children: [
           Row(
             children: [
-              Icon(icon, size: 22, color: ColorTokens.getTextSecondary(isDark)),
+              Icon(icon, size: 20, color: ColorTokens.getTextSecondary(isDark)),
               const SizedBox(width: 14),
               Expanded(child: Text(label, style: AppTypography.bodySans.copyWith(
                 color: ColorTokens.getTextPrimary(isDark),

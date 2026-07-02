@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../../core/app/providers.dart';
 import '../../../../core/design_system/color_tokens.dart';
@@ -146,7 +147,7 @@ class ModifyHighlightSheet extends ConsumerWidget {
           ),
           const SizedBox(height: 20),
           ListTile(
-            leading: const Icon(Icons.delete_outline, color: ColorTokens.error),
+            leading: const Icon(LucideIcons.trash2, color: ColorTokens.error),
             title: const Text('Delete Highlight', style: TextStyle(color: ColorTokens.error)),
             onTap: () async {
               final repo = ref.read(articleRepositoryProvider);

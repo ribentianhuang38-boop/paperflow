@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../core/app/providers.dart';
 import '../../../core/design_system/color_tokens.dart';
@@ -19,10 +20,12 @@ class TerminologyScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text('Terminology Book', style: AppTypography.title2.copyWith(
           color: ColorTokens.getTextPrimary(isDark),
+          fontWeight: FontWeight.bold,
         )),
+        centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.copy_outlined),
+            icon: const Icon(LucideIcons.copy),
             onPressed: () => _export(context, ref),
           ),
         ],
@@ -39,17 +42,30 @@ class TerminologyScreen extends ConsumerWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.bookmark_outline, size: 64,
-                        color: ColorTokens.getTextTertiary(isDark)),
-                    const SizedBox(height: 20),
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: ColorTokens.getSurfaceSecondary(isDark),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: ColorTokens.getDivider(isDark), width: 0.5),
+                      ),
+                      child: Icon(
+                        LucideIcons.bookmark,
+                        size: 32,
+                        color: ColorTokens.getTextTertiary(isDark),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
                     Text('No terms collected yet', style: AppTypography.title2.copyWith(
                       color: ColorTokens.getTextPrimary(isDark),
+                      fontWeight: FontWeight.bold,
                     )),
                     const SizedBox(height: 8),
                     Text('Double tap on words while reading to collect them.',
                       textAlign: TextAlign.center,
                       style: AppTypography.subheadline.copyWith(
-                        color: ColorTokens.getTextTertiary(isDark),
+                        color: ColorTokens.getTextSecondary(isDark),
                       ),
                     ),
                   ],
@@ -58,7 +74,7 @@ class TerminologyScreen extends ConsumerWidget {
             );
           }
           return ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             itemCount: items.length,
             itemBuilder: (ctx, i) => _WordTile(item: items[i], isDark: isDark),
           );
@@ -93,11 +109,13 @@ class _WordTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: ColorTokens.getSurface(isDark),
-        borderRadius: BorderRadius.circular(16),
+        color: ColorTokens.getBackground(isDark),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: ColorTokens.getDivider(isDark), width: 1.0),
+        boxShadow: ColorTokens.getShadow(isDark),
       ),
       child: Row(
         children: [
@@ -106,13 +124,17 @@ class _WordTile extends StatelessWidget {
             height: 40,
             decoration: BoxDecoration(
               color: item.isStarred
-                  ? Colors.amber.withOpacity(0.12)
+                  ? Colors.amber.withOpacity(0.08)
                   : ColorTokens.getSurfaceSecondary(isDark),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: item.isStarred ? Colors.amber.withOpacity(0.2) : ColorTokens.getDivider(isDark),
+                width: 0.5,
+              ),
             ),
             child: Icon(
-              item.isStarred ? Icons.star_rounded : Icons.bookmark_outline,
-              size: 20,
+              item.isStarred ? LucideIcons.star : LucideIcons.bookmark,
+              size: 18,
               color: item.isStarred ? Colors.amber : ColorTokens.getTextTertiary(isDark),
             ),
           ),
@@ -124,18 +146,22 @@ class _WordTile extends StatelessWidget {
                 Text(item.word,
                     style: AppTypography.headline.copyWith(
                       color: ColorTokens.getTextPrimary(isDark),
+                      fontWeight: FontWeight.bold,
                     )),
-                if (item.meaning.isNotEmpty)
+                if (item.meaning.isNotEmpty) ...[
+                  const SizedBox(height: 4),
                   Text(item.meaning,
                       maxLines: 1, overflow: TextOverflow.ellipsis,
                       style: AppTypography.subheadline.copyWith(
                         color: ColorTokens.getTextSecondary(isDark),
                       )),
+                ],
               ],
             ),
           ),
           Text('x${item.queryCount}', style: AppTypography.caption1.copyWith(
             color: ColorTokens.getTextTertiary(isDark),
+            fontWeight: FontWeight.bold,
           )),
         ],
       ),

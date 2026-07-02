@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../design_system/color_tokens.dart';
-import '../design_system/icon.dart';
 import '../../features/library/presentation/library_screen.dart';
 import '../../features/explore/presentation/explore_screen.dart';
 import '../../features/reading_history/presentation/history_screen.dart';
@@ -67,13 +67,13 @@ class _MainShell extends StatelessWidget {
     return Scaffold(
       body: child,
       bottomNavigationBar: Container(
-        height: 82,
+        height: 72,
         decoration: BoxDecoration(
-          color: ColorTokens.getSurface(isDark).withOpacity(0.98),
+          color: ColorTokens.getBackground(isDark),
           border: Border(
             top: BorderSide(
               color: ColorTokens.getDivider(isDark),
-              width: 0.5,
+              width: 1.0,
             ),
           ),
         ),
@@ -82,8 +82,7 @@ class _MainShell extends StatelessWidget {
             children: [
               Expanded(
                 child: _NavItem(
-                  icon: AppIcons.library,
-                  activeIcon: Icons.menu_book,
+                  icon: LucideIcons.bookOpen,
                   label: 'Library',
                   isActive: location == '/',
                   isDark: isDark,
@@ -92,8 +91,7 @@ class _MainShell extends StatelessWidget {
               ),
               Expanded(
                 child: _NavItem(
-                  icon: AppIcons.explore,
-                  activeIcon: Icons.explore,
+                  icon: LucideIcons.compass,
                   label: 'Explore',
                   isActive: location == '/explore',
                   isDark: isDark,
@@ -102,9 +100,8 @@ class _MainShell extends StatelessWidget {
               ),
               Expanded(
                 child: _NavItem(
-                  icon: AppIcons.history,
-                  activeIcon: Icons.history,
-                  label: 'History',
+                  icon: LucideIcons.activity,
+                  label: 'Progress',
                   isActive: location == '/history',
                   isDark: isDark,
                   onTap: () => context.go('/history'),
@@ -120,7 +117,6 @@ class _MainShell extends StatelessWidget {
 
 class _NavItem extends StatelessWidget {
   final IconData icon;
-  final IconData activeIcon;
   final String label;
   final bool isActive;
   final bool isDark;
@@ -128,7 +124,6 @@ class _NavItem extends StatelessWidget {
 
   const _NavItem({
     required this.icon,
-    required this.activeIcon,
     required this.label,
     required this.isActive,
     required this.isDark,
@@ -137,6 +132,9 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final activeColor = ColorTokens.accent;
+    final inactiveColor = ColorTokens.getTextTertiary(isDark);
+
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -144,22 +142,18 @@ class _NavItem extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            isActive ? activeIcon : icon,
-            size: 26,
-            color: isActive
-                ? ColorTokens.accent
-                : ColorTokens.getTextTertiary(isDark),
+            icon,
+            size: 22,
+            color: isActive ? activeColor : inactiveColor,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 5),
           Text(
             label,
             style: TextStyle(
               fontFamily: 'Inter',
-              fontSize: 11,
+              fontSize: 10,
               fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-              color: isActive
-                  ? ColorTokens.accent
-                  : ColorTokens.getTextTertiary(isDark),
+              color: isActive ? activeColor : inactiveColor,
             ),
           ),
         ],

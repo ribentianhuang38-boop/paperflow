@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../core/app/providers.dart';
 import '../../../core/design_system/color_tokens.dart';
@@ -11,171 +12,119 @@ import 'library_screen.dart';
 
 class DocumentCard extends ConsumerWidget {
   final Article document;
-  final bool compact;
 
   const DocumentCard({
     super.key,
     required this.document,
-    this.compact = false,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    if (compact) return _buildCompact(context, ref, isDark);
-    return _buildFull(context, ref, isDark);
-  }
 
-  Widget _buildCompact(BuildContext context, WidgetRef ref, bool isDark) {
     return GestureDetector(
       onTap: () => context.push('/reader/${document.id}'),
       child: Container(
         decoration: BoxDecoration(
-          color: ColorTokens.getSurface(isDark),
+          color: ColorTokens.getBackground(isDark),
           borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: ColorTokens.getDivider(isDark), width: 1.0),
+          boxShadow: ColorTokens.getShadow(isDark),
         ),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  width: 36,
-                  height: 36,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: ColorTokens.accentLight,
-                    borderRadius: BorderRadius.circular(10),
+                    color: ColorTokens.getSurfaceSecondary(isDark),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: ColorTokens.getDivider(isDark), width: 0.5),
                   ),
-                  child: const Icon(Icons.description_outlined, size: 18, color: ColorTokens.accent),
+                  child: Text(
+                    document.fileType.toUpperCase(),
+                    style: AppTypography.caption2.copyWith(
+                      color: ColorTokens.accent,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
-                const Spacer(),
-                if (document.isFavorite)
-                  const Icon(Icons.favorite, size: 14, color: ColorTokens.error),
+                Row(
+                  children: [
+                    if (document.isFavorite) ...[
+                      const Icon(LucideIcons.heart, size: 16, color: ColorTokens.error),
+                      const SizedBox(width: 12),
+                    ],
+                    GestureDetector(
+                      onTap: () => _showMenu(context, ref),
+                      child: Icon(
+                        LucideIcons.moreHorizontal,
+                        size: 20,
+                        color: ColorTokens.getTextTertiary(isDark),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
-            const Spacer(),
+            const SizedBox(height: 16),
             Text(
               document.title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: AppTypography.subheadline.copyWith(
-                fontWeight: FontWeight.w600,
+              style: AppTypography.headline.copyWith(
                 color: ColorTokens.getTextPrimary(isDark),
+                fontWeight: FontWeight.w600,
+                height: 1.3,
               ),
             ),
-            const SizedBox(height: 8),
-            if (document.progress > 0)
+            if (document.author != null && document.author!.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                document.author!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.subheadline.copyWith(
+                  color: ColorTokens.getTextSecondary(isDark),
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _formatDate(document.lastReadTime ?? document.importDate),
+                  style: AppTypography.caption1.copyWith(
+                    color: ColorTokens.getTextTertiary(isDark),
+                  ),
+                ),
+                if (document.progress > 0)
+                  Text(
+                    '${(document.progress * 100).round()}% read',
+                    style: AppTypography.caption1.copyWith(
+                      color: ColorTokens.getTextSecondary(isDark),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+              ],
+            ),
+            if (document.progress > 0) ...[
+              const SizedBox(height: 10),
               ClipRRect(
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
                   value: document.progress,
                   backgroundColor: ColorTokens.getDivider(isDark),
                   valueColor: const AlwaysStoppedAnimation(ColorTokens.accent),
-                  minHeight: 3,
+                  minHeight: 4,
                 ),
               ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFull(BuildContext context, WidgetRef ref, bool isDark) {
-    return GestureDetector(
-      onTap: () => context.push('/reader/${document.id}'),
-      child: Container(
-        decoration: BoxDecoration(
-          color: ColorTokens.getSurface(isDark),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: ColorTokens.accentLight,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Icon(Icons.description_outlined, color: ColorTokens.accent, size: 24),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          document.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.headline.copyWith(
-                            color: ColorTokens.getTextPrimary(isDark),
-                          ),
-                        ),
-                      ),
-                      if (document.isFavorite)
-                        const Icon(Icons.favorite, size: 16, color: ColorTokens.error),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  if (document.author != null)
-                    Text(
-                      document.author!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.caption1.copyWith(
-                        color: ColorTokens.getTextSecondary(isDark),
-                      ),
-                    ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _formatDate(document.lastReadTime ?? document.importDate),
-                    style: AppTypography.caption1.copyWith(
-                      color: ColorTokens.getTextTertiary(isDark),
-                    ),
-                  ),
-                  if (document.progress > 0) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(2),
-                            child: LinearProgressIndicator(
-                              value: document.progress,
-                              backgroundColor: ColorTokens.getDivider(isDark),
-                              valueColor: const AlwaysStoppedAnimation(ColorTokens.accent),
-                              minHeight: 3,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${(document.progress * 100).round()}%',
-                          style: AppTypography.caption1.copyWith(
-                            color: ColorTokens.getTextSecondary(isDark),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () => _showMenu(context, ref),
-              child: Icon(
-                Icons.more_horiz,
-                size: 20,
-                color: ColorTokens.getTextTertiary(isDark),
-              ),
-            ),
+            ],
           ],
         ),
       ),
@@ -187,7 +136,6 @@ class DocumentCard extends ConsumerWidget {
     final diff = DateTime.now().difference(date);
     if (diff.inDays == 0) return 'Today';
     if (diff.inDays == 1) return 'Yesterday';
-    if (diff.inDays < 7) return DateFormat.E().format(date);
     return DateFormat.yMMMd().format(date);
   }
 
@@ -195,9 +143,9 @@ class DocumentCard extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
-      backgroundColor: ColorTokens.getSurface(isDark),
+      backgroundColor: ColorTokens.getBackground(isDark),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (ctx) => ProviderScope(
         parent: ProviderScope.containerOf(context),
@@ -208,16 +156,21 @@ class DocumentCard extends ConsumerWidget {
               Container(
                 width: 36,
                 height: 4,
-                margin: const EdgeInsets.only(top: 12, bottom: 20),
+                margin: const EdgeInsets.only(top: 12, bottom: 16),
                 decoration: BoxDecoration(
-                  color: ColorTokens.getTextTertiary(isDark),
+                  color: ColorTokens.getDivider(isDark),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              _MenuItem(
-                icon: document.isFavorite ? Icons.favorite_border : Icons.favorite,
-                label: document.isFavorite ? 'Unfavorite' : 'Favorite',
-                isDark: isDark,
+              ListTile(
+                leading: Icon(
+                  document.isFavorite ? LucideIcons.heartOff : LucideIcons.heart,
+                  color: ColorTokens.getTextPrimary(isDark),
+                ),
+                title: Text(
+                  document.isFavorite ? 'Unfavorite' : 'Favorite',
+                  style: AppTypography.bodySans.copyWith(color: ColorTokens.getTextPrimary(isDark)),
+                ),
                 onTap: () async {
                   Navigator.pop(ctx);
                   final repo = ref.read(articleRepositoryProvider);
@@ -226,20 +179,23 @@ class DocumentCard extends ConsumerWidget {
                   ref.invalidate(continueReadingProvider);
                 },
               ),
-              _MenuItem(
-                icon: Icons.quiz_outlined,
-                label: 'Start Review',
-                isDark: isDark,
+              ListTile(
+                leading: Icon(LucideIcons.fileSpreadsheet, color: ColorTokens.getTextPrimary(isDark)),
+                title: Text(
+                  'Start Review',
+                  style: AppTypography.bodySans.copyWith(color: ColorTokens.getTextPrimary(isDark)),
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
                   context.push('/recall/${document.id}');
                 },
               ),
-              _MenuItem(
-                icon: Icons.delete_outline,
-                label: 'Delete',
-                isDestructive: true,
-                isDark: isDark,
+              ListTile(
+                leading: const Icon(LucideIcons.trash2, color: ColorTokens.error),
+                title: Text(
+                  'Delete',
+                  style: AppTypography.bodySans.copyWith(color: ColorTokens.error),
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
                   _confirmDelete(context, ref);
@@ -260,10 +216,10 @@ class DocumentCard extends ConsumerWidget {
       builder: (ctx) => ProviderScope(
         parent: ProviderScope.containerOf(context),
         child: AlertDialog(
-          backgroundColor: ColorTokens.getSurface(isDark),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Delete Document'),
-          content: Text('Delete "${document.title}"? This cannot be undone.'),
+          backgroundColor: ColorTokens.getBackground(isDark),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: Text('Delete Document', style: AppTypography.title3.copyWith(color: ColorTokens.getTextPrimary(isDark))),
+          content: Text('Delete "${document.title}"? This cannot be undone.', style: AppTypography.bodySans.copyWith(color: ColorTokens.getTextSecondary(isDark))),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
@@ -282,44 +238,6 @@ class DocumentCard extends ConsumerWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _MenuItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isDestructive;
-  final bool isDark;
-  final VoidCallback onTap;
-
-  const _MenuItem({
-    required this.icon,
-    required this.label,
-    this.isDestructive = false,
-    required this.isDark,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(
-        icon,
-        color: isDestructive
-            ? ColorTokens.error
-            : ColorTokens.getTextPrimary(isDark),
-      ),
-      title: Text(
-        label,
-        style: AppTypography.bodySans.copyWith(
-          color: isDestructive
-              ? ColorTokens.error
-              : ColorTokens.getTextPrimary(isDark),
-        ),
-      ),
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 24),
     );
   }
 }

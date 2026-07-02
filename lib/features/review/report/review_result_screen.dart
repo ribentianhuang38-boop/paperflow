@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../core/app/providers.dart';
 import '../../../core/design_system/color_tokens.dart';
@@ -67,14 +68,14 @@ class _ReviewResultScreenState extends ConsumerState<ReviewResultScreen> {
   }) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: ColorTokens.getSurface(Theme.of(context).brightness == Brightness.dark),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      backgroundColor: ColorTokens.getBackground(Theme.of(context).brightness == Brightness.dark),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.crop_3_2),
+              leading: const Icon(LucideIcons.aspectRatio),
               title: const Text('Share Standard Card (1080 x 1350)'),
               onTap: () {
                 Navigator.pop(ctx);
@@ -96,7 +97,7 @@ class _ReviewResultScreenState extends ConsumerState<ReviewResultScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.crop_16_9),
+              leading: const Icon(LucideIcons.smartphone),
               title: const Text('Share Story Card (1080 x 1920)'),
               onTap: () {
                 Navigator.pop(ctx);
@@ -133,9 +134,10 @@ class _ReviewResultScreenState extends ConsumerState<ReviewResultScreen> {
       appBar: AppBar(
         title: Text('Review Result', style: AppTypography.title2.copyWith(
           color: ColorTokens.getTextPrimary(isDark),
+          fontWeight: FontWeight.bold,
         )),
         leading: IconButton(
-          icon: const Icon(Icons.close),
+          icon: const Icon(LucideIcons.x),
           onPressed: () => context.go('/'),
         ),
       ),
@@ -236,7 +238,7 @@ class _ReviewResultScreenState extends ConsumerState<ReviewResultScreen> {
                     const SizedBox(height: 20),
                     Center(
                       child: OutlinedButton.icon(
-                        icon: const Icon(Icons.share),
+                        icon: const Icon(LucideIcons.share2),
                         label: const Text('Share Reading Summary'),
                         onPressed: () => _triggerShare(
                           article: article,
@@ -268,7 +270,7 @@ class _ReviewResultScreenState extends ConsumerState<ReviewResultScreen> {
                         title: 'Strengths',
                         items: strengths,
                         iconColor: ColorTokens.success,
-                        icon: Icons.check_circle_outline,
+                        icon: LucideIcons.checkCircle,
                         isDark: isDark,
                       ),
                       const SizedBox(height: 24),
@@ -278,7 +280,7 @@ class _ReviewResultScreenState extends ConsumerState<ReviewResultScreen> {
                         title: 'Focus Areas',
                         items: needReviewList,
                         iconColor: ColorTokens.warning,
-                        icon: Icons.offline_bolt_outlined,
+                        icon: LucideIcons.zap,
                         isDark: isDark,
                       ),
                       const SizedBox(height: 24),
@@ -295,7 +297,7 @@ class _ReviewResultScreenState extends ConsumerState<ReviewResultScreen> {
                     const SizedBox(height: 24),
                     if (correct.isNotEmpty) ...[
                       CategoryHeader(
-                        icon: Icons.check_circle,
+                        icon: LucideIcons.checkCircle,
                         color: ColorTokens.success,
                         title: 'Understood Well',
                         count: correct.length,
@@ -307,9 +309,9 @@ class _ReviewResultScreenState extends ConsumerState<ReviewResultScreen> {
                     ],
                     if (partial.isNotEmpty) ...[
                       CategoryHeader(
-                        icon: Icons.warning_amber_rounded,
+                        icon: LucideIcons.alertTriangle,
                         color: ColorTokens.warning,
-                        title: 'Need Review (${totalNotes})',
+                        title: 'Need Review',
                         count: partial.length,
                         isDark: isDark,
                       ),
@@ -323,12 +325,12 @@ class _ReviewResultScreenState extends ConsumerState<ReviewResultScreen> {
                             documentId: documentId,
                             color: ColorTokens.warning,
                             isDark: isDark,
-                          )),
+                           )),
                       const SizedBox(height: 24),
                     ],
                     if (wrong.isNotEmpty) ...[
                       CategoryHeader(
-                        icon: Icons.error_outline_rounded,
+                        icon: LucideIcons.xCircle,
                         color: ColorTokens.error,
                         title: 'Misunderstood Paragraphs',
                         count: wrong.length,

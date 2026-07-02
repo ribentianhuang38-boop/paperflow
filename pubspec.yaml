@@ -41,6 +41,7 @@ dependencies:
   fl_chart: ^0.70.2
   shimmer: ^3.0.0
   cached_network_image: ^3.4.1
+  lucide_icons: any
 
   # Utils
   intl: ^0.20.2
@@ -64,3 +65,4 @@ flutter:
     - assets/
     - assets/readability.js
     - assets/prompts/
+    - assets/explore/

@@ -2,30 +2,29 @@ import 'package:flutter/material.dart';
 
 class ColorTokens {
   // Light Mode Colors
-  static const lightBackground = Color(0xFFFAFADB);
-  static const lightSurface = Color(0xFFFFFFFF);
-  static const lightSurfaceSecondary = Color(0xFFF2F2F7);
-  static const lightTextPrimary = Color(0xFF1C1C1E);
-  static const lightTextSecondary = Color(0xFF48484A);
-  static const lightTextTertiary = Color(0xFF8E8E93);
-  static const lightDivider = Color(0xFFE5E5EA);
+  static const lightBackground = Color(0xFFFFFFFF);
+  static const lightSurface = Color(0xFFFAFAFA);
+  static const lightSurfaceSecondary = Color(0xFFF7F7F8);
+  static const lightTextPrimary = Color(0xFF111111);
+  static const lightTextSecondary = Color(0xFF666666);
+  static const lightTextTertiary = Color(0xFF999999);
+  static const lightDivider = Color(0xFFECECEC);
 
   // Dark Mode Colors
   static const darkBackground = Color(0xFF000000);
-  static const darkSurface = Color(0xFF1C1C1E);
-  static const darkSurfaceSecondary = Color(0xFF2C2C2E);
+  static const darkSurface = Color(0xFF0A0A0A);
+  static const darkSurfaceSecondary = Color(0xFF161618);
   static const darkTextPrimary = Color(0xFFF5F5F7);
-  static const darkTextSecondary = Color(0xFFAEAEB2);
-  static const darkTextTertiary = Color(0xFF636366);
-  static const darkDivider = Color(0xFF38383A);
+  static const darkTextSecondary = Color(0xFFA1A1A5);
+  static const darkTextTertiary = Color(0xFF6C6C70);
+  static const darkDivider = Color(0xFF242426);
 
   // Brand / Common Colors
-  static const accent = Color(0xFF007AFF); // Apple Blue
-  static const accentLight = Color(0xFF3593FF);
+  static const accent = Color(0xFF4F6BFF); // Premium Accent Blue
   
-  static const success = Color(0xFF34C759); // iOS Green
-  static const warning = Color(0xFFFF9500); // iOS Orange
-  static const error = Color(0xFFFF3B30); // iOS Red
+  static const success = Color(0xFF22C55E);
+  static const warning = Color(0xFFF59E0B);
+  static const error = Color(0xFFEF4444);
 
   static Color getBackground(bool isDark) => isDark ? darkBackground : lightBackground;
   static Color getSurface(bool isDark) => isDark ? darkSurface : lightSurface;
@@ -34,4 +33,24 @@ class ColorTokens {
   static Color getTextSecondary(bool isDark) => isDark ? darkTextSecondary : lightTextSecondary;
   static Color getTextTertiary(bool isDark) => isDark ? darkTextTertiary : lightTextTertiary;
   static Color getDivider(bool isDark) => isDark ? darkDivider : lightDivider;
+
+  // Premium Light Shadows (Apple style)
+  static List<BoxShadow> getShadow(bool isDark) {
+    if (isDark) {
+      return [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.4),
+          blurRadius: 12,
+          offset: const Offset(0, 4),
+        )
+      ];
+    }
+    return [
+      BoxShadow(
+        color: Colors.black.withOpacity(0.03),
+        blurRadius: 10,
+        offset: const Offset(0, 3),
+      )
+    ];
+  }
 }
