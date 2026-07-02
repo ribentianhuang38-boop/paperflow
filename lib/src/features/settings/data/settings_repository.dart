@@ -20,9 +20,9 @@ class SettingsRepository {
   double get lineHeight => _prefs.getDouble(_keyLineHeight) ?? 1.6;
   String get locale => _prefs.getString(_keyLocale) ?? 'zh';
   String get backendUrl =>
-      _prefs.getString(_keyBackendUrl) ?? 'https://api.siliconflow.cn';
+      _prefs.getString(_keyBackendUrl) ?? 'https://api.xiaomimimo.com';
   String get accessKey => _prefs.getString(_keyAccessKey) ?? 'sk-cqumxtso5suztny5h5r01ar3g23cbp2phz3tuwkgo6lcjzoh';
-  String get modelName => _prefs.getString(_keyModelName) ?? 'deepseek-ai/DeepSeek-V3';
+  String get modelName => _prefs.getString(_keyModelName) ?? 'mimo-v2.5';
 
   Future<void> setThemeMode(String value) =>
       _prefs.setString(_keyThemeMode, value);
