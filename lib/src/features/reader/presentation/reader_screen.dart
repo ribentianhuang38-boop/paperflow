@@ -368,7 +368,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                           ),
                           const SizedBox(height: 20),
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.between,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Expanded(
                                 child: Column(

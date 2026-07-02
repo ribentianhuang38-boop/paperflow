@@ -713,7 +713,7 @@ class _SubScoresSection extends StatelessWidget {
   Widget _buildRow(String label, double score, bool isDark) {
     final color = score >= 80 ? AppColors.success : score >= 60 ? AppColors.warning : AppColors.error;
     return Row(
-      mainAxisAlignment: MainAxisAlignment.between,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           label,
