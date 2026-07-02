@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-import 'src/common/providers.dart';
-import 'src/common/theme/app_theme.dart';
-import 'src/common/routing/app_router.dart';
+import 'core/app/providers.dart';
+import 'core/theme/app_theme.dart';
+import 'core/routing/app_router.dart';
 
 class PaperFlowApp extends ConsumerWidget {
   const PaperFlowApp({super.key});
