@@ -191,76 +191,106 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
 
     Widget webViewContent = WebViewWidget(controller: _webViewController);
 
-    // edge swipe gesture wrapper
-    if (!_isShowingHub) {
-      webViewContent = GestureDetector(
-        onHorizontalDragStart: (details) {
-          _dragStartX = details.globalPosition.dx;
-        },
-        onHorizontalDragUpdate: (details) {
-          if (_dragStartX != null && _dragStartX! < 50) {
-            final delta = details.globalPosition.dx - _dragStartX!;
-            if (delta > 150) {
-              _dragStartX = null; // Trigger once
-              _captureArticle();
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final canGoBack = await _webViewController.canGoBack();
+        if (canGoBack) {
+          await _webViewController.goBack();
+        } else if (!_isShowingHub) {
+          await _webViewController.loadFlutterAsset('assets/explore/index.html');
+        } else {
+          // If we are showing the local hub and cannot go back in WebView history,
+          // go to the default Library screen tab if we aren't there yet, or pop out.
+          if (context.mounted) {
+            final state = GoRouterState.of(context);
+            if (state.matchedLocation != '/') {
+              context.go('/');
+            } else {
+              SystemNavigator.pop();
             }
           }
-        },
-        onHorizontalDragEnd: (_) {
-          _dragStartX = null;
-        },
-        child: webViewContent,
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: isDark ? Colors.black : const Color(0xFFFAFAFA),
-      body: SafeArea(
-        child: Column(
-          children: [
-            if (!_isShowingHub) _buildTopBrowserBar(isDark),
-            if (_isLoading && _progress < 1.0)
-              LinearProgressIndicator(
-                value: _progress,
-                backgroundColor: ColorTokens.getDivider(isDark),
-                valueColor: const AlwaysStoppedAnimation(ColorTokens.accent),
-                minHeight: 2,
-              ),
-            Expanded(
-              child: Stack(
-                children: [
-                  webViewContent,
-                  if (_isExtracting)
-                    Container(
-                      color: ColorTokens.getBackground(isDark).withOpacity(0.95),
-                      child: Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _buildSkeletonLoader(isDark),
-                            const SizedBox(height: 24),
-                            Text(
-                              'PaperFlow Reading Mode',
-                              style: AppTypography.title3.copyWith(
-                                color: ColorTokens.getTextPrimary(isDark),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Extracting article text and figures...',
-                              style: AppTypography.subheadline.copyWith(
-                                color: ColorTokens.getTextSecondary(isDark),
-                              ),
-                            ),
-                          ],
+        }
+      },
+      child: Scaffold(
+        backgroundColor: isDark ? Colors.black : const Color(0xFFFAFAFA),
+        body: SafeArea(
+          child: Column(
+            children: [
+              if (!_isShowingHub) _buildTopBrowserBar(isDark),
+              if (_isLoading && _progress < 1.0)
+                LinearProgressIndicator(
+                  value: _progress,
+                  backgroundColor: ColorTokens.getDivider(isDark),
+                  valueColor: const AlwaysStoppedAnimation(ColorTokens.accent),
+                  minHeight: 2,
+                ),
+              Expanded(
+                child: Stack(
+                  children: [
+                    webViewContent,
+                    // Active edge swipe zone on the left margin (24px wide)
+                    if (!_isShowingHub)
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: 24,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onHorizontalDragStart: (details) {
+                            _dragStartX = details.globalPosition.dx;
+                          },
+                          onHorizontalDragUpdate: (details) {
+                            if (_dragStartX != null) {
+                              final delta = details.globalPosition.dx - _dragStartX!;
+                              if (delta > 80) {
+                                _dragStartX = null; // Trigger once
+                                _captureArticle();
+                              }
+                            }
+                          },
+                          onHorizontalDragEnd: (_) {
+                            _dragStartX = null;
+                          },
+                          child: Container(
+                            color: Colors.transparent,
+                          ),
                         ),
                       ),
-                    ),
-                ],
+                    if (_isExtracting)
+                      Container(
+                        color: ColorTokens.getBackground(isDark).withOpacity(0.95),
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _buildSkeletonLoader(isDark),
+                              const SizedBox(height: 24),
+                              Text(
+                                'PaperFlow Reading Mode',
+                                style: AppTypography.title3.copyWith(
+                                  color: ColorTokens.getTextPrimary(isDark),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Extracting article text and figures...',
+                                style: AppTypography.subheadline.copyWith(
+                                  color: ColorTokens.getTextSecondary(isDark),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
