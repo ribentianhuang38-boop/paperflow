@@ -14,7 +14,23 @@ class GenericAdapter implements BaseArticleAdapter {
     final textContent = json['textContent'] as String? ?? '';
 
     List<Section> sections = [];
-    if (textContent.isNotEmpty) {
+    if (json.containsKey('paragraphs') && json['paragraphs'] is List) {
+      final list = json['paragraphs'] as List;
+      final List<Paragraph> plist = [];
+      for (final item in list) {
+        if (item is Map) {
+          final text = item['text'] as String? ?? '';
+          if (text.trim().isNotEmpty) {
+            plist.add(Paragraph(text: text.trim()));
+          }
+        }
+      }
+      if (plist.isNotEmpty) {
+        sections.add(Section(heading: 'Content', paragraphs: plist));
+      }
+    }
+
+    if (sections.isEmpty && textContent.isNotEmpty) {
       final rawParagraphs = textContent
           .split(RegExp(r'\n{2,}'))
           .map((p) => p.trim())

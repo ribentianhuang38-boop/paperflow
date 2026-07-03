@@ -32,7 +32,6 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   bool _isLoading = false;
   bool _isExtracting = false;
   double _progress = 0;
-  double? _dragStartX;
 
   bool get _isShowingHub {
     return _currentUrl.isEmpty ||
@@ -230,35 +229,6 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                 child: Stack(
                   children: [
                     webViewContent,
-                    // Active edge swipe zone on the left margin (24px wide)
-                    if (!_isShowingHub)
-                      Positioned(
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
-                        width: 24,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.translucent,
-                          onHorizontalDragStart: (details) {
-                            _dragStartX = details.globalPosition.dx;
-                          },
-                          onHorizontalDragUpdate: (details) {
-                            if (_dragStartX != null) {
-                              final delta = details.globalPosition.dx - _dragStartX!;
-                              if (delta > 80) {
-                                _dragStartX = null; // Trigger once
-                                _captureArticle();
-                              }
-                            }
-                          },
-                          onHorizontalDragEnd: (_) {
-                            _dragStartX = null;
-                          },
-                          child: Container(
-                            color: Colors.transparent,
-                          ),
-                        ),
-                      ),
                     if (_isExtracting)
                       Container(
                         color: ColorTokens.getBackground(isDark).withOpacity(0.95),
